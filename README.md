@@ -1,7 +1,7 @@
 # 🎮 Bomber Dino Backend
 
 <div align="center">
-  <img src="assets/images/bomber-dino-logo.png" alt="Bomber Dino Logo" width="70%">
+  <img src="/assets/images/bomberdino-logo.png" alt="Bomber Dino Logo" width="35%">
 </div>
 
 <div align="center">
@@ -115,11 +115,11 @@ The project follows a **layered architecture** pattern with clear separation of 
 │  ┌───────────────────────────────────────┐  │
 │  │    Controller Layer (REST + WS)       │  │
 │  └──────────────┬────────────────────────┘  │
-│                 ↓                            │
+│                 ↓                           │
 │  ┌───────────────────────────────────────┐  │
 │  │      Service Layer (Business Logic)   │  │
 │  └──────────────┬────────────────────────┘  │
-│                 ↓                            │
+│                 ↓                           │
 │  ┌───────────────────────────────────────┐  │
 │  │   Repository Layer (Data Access)      │  │
 │  └───────────────────────────────────────┘  │
@@ -746,3 +746,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
   <p>Made with ❤️ for multiplayer gaming enthusiasts</p>
   <p>🌟 Star this repository if you find it helpful!</p>
 </div>
+
