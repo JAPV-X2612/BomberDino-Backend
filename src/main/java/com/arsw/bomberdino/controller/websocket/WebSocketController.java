@@ -375,20 +375,20 @@ public class WebSocketController {
     }
 
     @EventListener
-public void handleSessionSubscribeEvent(SessionSubscribeEvent event) {
-    StompHeaderAccessor headers = StompHeaderAccessor.wrap(event.getMessage());
-    String destination = headers.getDestination();
+    public void handleSessionSubscribeEvent(SessionSubscribeEvent event) {
+        StompHeaderAccessor headers = StompHeaderAccessor.wrap(event.getMessage());
+        String destination = headers.getDestination();
 
-    if (destination != null && destination.contains("/topic/game/") && destination.endsWith("/state")) {
-        String sessionId = destination.split("/topic/game/")[1].split("/state")[0];
+        if (destination != null && destination.contains("/topic/game/") && destination.endsWith("/state")) {
+            String sessionId = destination.split("/topic/game/")[1].split("/state")[0];
 
-        try {
-            GameSession session = gameSessionService.getSession(sessionId);
-            GameStateDTO state = session.getCurrentState();
-            broadcastGameState(sessionId, state);
-        } catch (Exception e) {
-            logger.error("Error sending initial state", e);
+            try {
+                GameSession session = gameSessionService.getSession(sessionId);
+                GameStateDTO state = session.getCurrentState();
+                broadcastGameState(sessionId, state);
+            } catch (Exception e) {
+                logger.error("Error sending initial state", e);
+            }
         }
     }
-}
 }

@@ -5,8 +5,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -20,12 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.arsw.bomberdino.controller.websocket.WebSocketController;
 import com.arsw.bomberdino.model.dto.request.CreateRoomRequestDTO;
 import com.arsw.bomberdino.model.dto.request.JoinRoomRequestDTO;
 import com.arsw.bomberdino.model.dto.response.GameRoomDTO;
-import com.arsw.bomberdino.model.dto.response.GameStateDTO;
 import com.arsw.bomberdino.model.dto.response.PlayerDTO;
 import com.arsw.bomberdino.model.entity.GameRoom;
 import com.arsw.bomberdino.model.entity.GameSession;
@@ -68,19 +64,19 @@ public class GameController {
             String roomIdStr = roomId.toString();
             String roomCode = roomId.toString().substring(0, 6).toUpperCase(); // 👈 Código corto
 
-            GameRoom room = GameRoom.builder().roomId(roomId).name(request.getRoomName())
-                    .roomCode(roomCode)
-                    .playerIds(new ArrayList<>()).maxPlayers(request.getMaxPlayers())
-                    .isPrivate(request.isPrivate()).status(GameStatus.WAITING)
-                    .createdAt(LocalDateTime.now()).password(request.getPassword()).build();
+            GameRoom room =
+                    GameRoom.builder().roomId(roomId).name(request.getRoomName()).roomCode(roomCode)
+                            .playerIds(new ArrayList<>()).maxPlayers(request.getMaxPlayers())
+                            .isPrivate(request.isPrivate()).status(GameStatus.WAITING)
+                            .createdAt(LocalDateTime.now()).password(request.getPassword()).build();
 
             GameSession session =
                     gameSessionService.createSession(roomCode, request.getMaxPlayers());
 
             GameRoomDTO roomDTO = GameRoomDTO.builder().roomId(roomIdStr).roomName(room.getName())
                     .roomCode(room.getRoomCode()).status(room.getStatus())
-                    .currentPlayers(getCurrentPlayersDTO(session.getPlayers())).maxPlayers(room.getMaxPlayers())
-                    .isPrivate(room.isPrivate()).build();
+                    .currentPlayers(getCurrentPlayersDTO(session.getPlayers()))
+                    .maxPlayers(room.getMaxPlayers()).isPrivate(room.isPrivate()).build();
 
 
 
@@ -129,13 +125,14 @@ public class GameController {
             Point spawnPoint = availableSpawnPoints.get(0);
             gameSessionService.addPlayer(sessionId, request.getPlayerId(), spawnPoint);
 
-        //     GameStateDTO currentState = session.getCurrentState();
-        // webSocketController.broadcastGameState(sessionId, currentState);
+            // GameStateDTO currentState = session.getCurrentState();
+            // webSocketController.broadcastGameState(sessionId, currentState);
 
-            GameRoomDTO roomDTO = GameRoomDTO.builder().roomId(sessionId)
-                    .roomName("Room_" + sessionId).roomCode(request.getRoomId())
-                    .status(session.getStatus()).currentPlayers(getCurrentPlayersDTO(session.getPlayers()))
-                    .maxPlayers(4).isPrivate(false).build();
+            GameRoomDTO roomDTO =
+                    GameRoomDTO.builder().roomId(sessionId).roomName("Room_" + sessionId)
+                            .roomCode(request.getRoomId()).status(session.getStatus())
+                            .currentPlayers(getCurrentPlayersDTO(session.getPlayers()))
+                            .maxPlayers(4).isPrivate(false).build();
 
             logger.info("Player {} joined room {} successfully", request.getPlayerId(), sessionId);
 
@@ -170,8 +167,9 @@ public class GameController {
                     .roomId(session.getSessionId().toString())
                     .roomName("Room_" + session.getSessionId().toString().substring(0, 8))
                     .roomCode(session.getSessionId().toString().substring(0, 6).toUpperCase())
-                    .status(session.getStatus()).currentPlayers(getCurrentPlayersDTO(session.getPlayers()))
-                    .maxPlayers(4).isPrivate(false).build()).toList();
+                    .status(session.getStatus())
+                    .currentPlayers(getCurrentPlayersDTO(session.getPlayers())).maxPlayers(4)
+                    .isPrivate(false).build()).toList();
 
             logger.info("Found {} rooms with status {}", roomDTOs.size(), status);
 
@@ -233,6 +231,4 @@ public class GameController {
                 .build())
         .toList();
     }
-
-
 }
