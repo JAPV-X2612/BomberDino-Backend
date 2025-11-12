@@ -14,13 +14,13 @@ logging:
     root: INFO
     com.arsw.bomberdino: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://bomber-dino-frontend-prod-bxbphmbvcpaugwdr.canadaeast-01.azurewebsites.net}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:https://bomber-dino-frontend-prod.vercel.app}
 
 websocket:
-  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://bomber-dino-frontend-prod-bxbphmbvcpaugwdr.canadaeast-01.azurewebsites.net}
+  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:https://bomber-dino-frontend-prod.vercel.app}
   message-size-limit: 65536
   send-buffer-size: 524288
   send-time-limit: 20000

@@ -23,7 +23,12 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(Arrays.asList("*"));
+        var allowed = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (allowed != null && !allowed.isBlank()) {
+            config.setAllowedOriginPatterns(Arrays.asList(allowed.split(",")));
+        } else {
+            config.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "https://localhost:*"));
+        }
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setMaxAge(3600L);
