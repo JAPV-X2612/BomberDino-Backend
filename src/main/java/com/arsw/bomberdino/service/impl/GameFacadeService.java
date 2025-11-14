@@ -2,6 +2,7 @@ package com.arsw.bomberdino.service.impl;
 
 import java.awt.Point;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -319,9 +320,21 @@ public class GameFacadeService {
      * @throws PlayerNotFoundException if player not found in session
      */
     private Player findPlayerInSession(GameSession session, String playerId) {
-        return session.getPlayers().stream().filter(p -> p.getId().toString().equals(playerId))
-                .findFirst().orElseThrow(() -> new PlayerNotFoundException(playerId,
-                session.getSessionId().toString()));
+        UUID searchUuid;
+        try {
+            searchUuid = UUID.fromString(playerId);
+        } catch (IllegalArgumentException e) {
+            searchUuid = UUID.nameUUIDFromBytes(playerId.getBytes());
+        }
+
+        final UUID finalSearchUuid = searchUuid;
+        return session.getPlayers().stream()
+                .filter(p -> p.getId().equals(finalSearchUuid))
+                .findFirst()
+                .orElseThrow(() -> new PlayerNotFoundException(
+                playerId,
+                "Player not found in session"
+        ));
     }
 
     /**

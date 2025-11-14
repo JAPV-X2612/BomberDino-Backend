@@ -63,13 +63,17 @@ public class WebSocketController {
                     request.getPlayerId(), request.getSessionId(), request.getDirection());
 
             gameFacadeService.handlePlayerMove(
-                    request.getSessionId(),
+                    request.getSessionId(), // roomCode directo
                     request.getPlayerId(),
                     request.getDirection()
             );
 
             logger.info("Player {} moved {} in session {}",
                     request.getPlayerId(), request.getDirection(), request.getSessionId());
+
+            // Broadcast estado actualizado
+            GameStateDTO updatedState = gameFacadeService.getGameState(request.getSessionId());
+            broadcastGameState(request.getSessionId(), updatedState);
 
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid move request from player {} in session {}: {}",
