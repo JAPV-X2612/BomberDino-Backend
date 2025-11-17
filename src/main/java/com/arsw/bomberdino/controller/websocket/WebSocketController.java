@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import com.arsw.bomberdino.exception.InvalidMoveException;
 import com.arsw.bomberdino.model.dto.request.PlaceBombRequestDTO;
 import com.arsw.bomberdino.model.dto.request.PlayerMoveRequestDTO;
 import com.arsw.bomberdino.model.dto.request.PowerUpCollectRequestDTO;
@@ -65,8 +66,7 @@ public class WebSocketController {
             gameFacadeService.handlePlayerMove(
                     request.getSessionId(), // roomCode directo
                     request.getPlayerId(),
-                    request.getDirection()
-            );
+                    request.getDirection());
 
             logger.info("Player {} moved {} in session {}",
                     request.getPlayerId(), request.getDirection(), request.getSessionId());
@@ -75,7 +75,7 @@ public class WebSocketController {
             GameStateDTO updatedState = gameFacadeService.getGameState(request.getSessionId());
             broadcastGameState(request.getSessionId(), updatedState);
 
-        } catch (IllegalArgumentException e) {
+        } catch (InvalidMoveException e) {
             logger.warn("Invalid move request from player {} in session {}: {}",
                     request.getPlayerId(), request.getSessionId(), e.getMessage());
             sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
@@ -111,8 +111,7 @@ public class WebSocketController {
             gameFacadeService.handlePlaceBomb(
                     request.getSessionId(),
                     request.getPlayerId(),
-                    request.getPosition()
-            );
+                    request.getPosition());
 
             logger.info("Player {} placed bomb at ({}, {}) in session {}",
                     request.getPlayerId(), request.getPosition().x,
@@ -143,7 +142,7 @@ public class WebSocketController {
      * Endpoint: /app/game/powerup
      *
      * @param request PowerUpCollectRequestDTO with session, player, and
-     * power-up ID
+     *                power-up ID
      */
     @MessageMapping("/game/powerup")
     public void handlePowerUpCollect(@Valid @Payload PowerUpCollectRequestDTO request) {
@@ -154,8 +153,7 @@ public class WebSocketController {
             gameFacadeService.handlePowerUpCollection(
                     request.getSessionId(),
                     request.getPlayerId(),
-                    request.getPowerUpId()
-            );
+                    request.getPowerUpId());
 
             logger.info("Player {} collected power-up {} in session {}",
                     request.getPlayerId(), request.getPowerUpId(), request.getSessionId());
@@ -186,7 +184,7 @@ public class WebSocketController {
      * Endpoint: /topic/game/{sessionId}/state (subscription)
      *
      * @param sessionId session identifier
-     * @param playerId player identifier
+     * @param playerId  player identifier
      */
     public void onPlayerConnect(String sessionId, String playerId) {
         try {
@@ -198,8 +196,7 @@ public class WebSocketController {
             messagingTemplate.convertAndSendToUser(
                     playerId,
                     destination,
-                    currentState
-            );
+                    currentState);
 
             logger.debug("Sent initial game state to player {} in session {}", playerId, sessionId);
 
@@ -215,7 +212,7 @@ public class WebSocketController {
      * notifies other players.
      *
      * @param sessionId session identifier
-     * @param playerId player identifier
+     * @param playerId  player identifier
      */
     public void onPlayerDisconnect(String sessionId, String playerId) {
         try {
@@ -241,7 +238,7 @@ public class WebSocketController {
      * players to transition from lobby to game.
      *
      * @param sessionId session identifier
-     * @param state initial game state
+     * @param state     initial game state
      */
     public void broadcastGameStart(String sessionId, GameStateDTO state) {
         try {
@@ -268,7 +265,7 @@ public class WebSocketController {
      * listeners for state synchronization.
      *
      * @param sessionId session identifier
-     * @param state GameStateUpdateDTO to broadcast
+     * @param state     GameStateUpdateDTO to broadcast
      */
     public void broadcastGameState(String sessionId, GameStateDTO state) {
         try {
@@ -285,7 +282,7 @@ public class WebSocketController {
      * feed and scoreboard updates.
      *
      * @param sessionId session identifier
-     * @param event PlayerKilledDTO with kill details
+     * @param event     PlayerKilledDTO with kill details
      */
     public void broadcastPlayerKilled(String sessionId, PlayerKilledDTO event) {
         try {
@@ -306,7 +303,7 @@ public class WebSocketController {
      * explosion animations and sound effects.
      *
      * @param sessionId session identifier
-     * @param event BombExplodedDTO with explosion details
+     * @param event     BombExplodedDTO with explosion details
      */
     public void broadcastBombExploded(String sessionId, BombExplodedDTO event) {
         try {
@@ -329,7 +326,7 @@ public class WebSocketController {
      * that someone left the session.
      *
      * @param sessionId session identifier
-     * @param playerId disconnected player identifier
+     * @param playerId  disconnected player identifier
      */
     private void broadcastPlayerDisconnected(String sessionId, String playerId) {
         try {
@@ -356,9 +353,9 @@ public class WebSocketController {
      * failed actions.
      *
      * @param sessionId session identifier
-     * @param playerId player identifier
+     * @param playerId  player identifier
      * @param errorCode error code identifier
-     * @param message error message description
+     * @param message   error message description
      */
     private void sendErrorToPlayer(String sessionId, String playerId,
             String errorCode, String message) {

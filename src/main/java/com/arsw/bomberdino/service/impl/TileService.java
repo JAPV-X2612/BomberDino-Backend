@@ -14,7 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Thread-safe service for managing tile occupation state across game sessions.
- * Critical for preventing race conditions when multiple players attempt to occupy same tile.
+ * Critical for preventing race conditions when multiple players attempt to
+ * occupy same tile.
  * Uses synchronized methods to ensure atomic occupation checks and updates.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
@@ -45,7 +46,7 @@ public class TileService {
             return false;
         }
 
-        return tile.isOccupied();
+        return tile.isOccupied() || tile.hasBomb();
     }
 
     /**
