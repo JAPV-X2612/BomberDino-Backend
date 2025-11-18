@@ -17,7 +17,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service for managing bomb placement, explosion scheduling, and lifecycle. Handles bomb countdown
+ * Service for managing bomb placement, explosion scheduling, and lifecycle.
+ * Handles bomb countdown
  * timers using scheduled executors. Thread-safe for concurrent bomb placements.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
@@ -30,22 +31,22 @@ public class BombService {
 
     private final CollisionService collisionService;
     private final ConcurrentHashMap<String, Bomb> bombs = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService explosionScheduler =
-            Executors.newScheduledThreadPool(10);
+    private final ScheduledExecutorService explosionScheduler = Executors.newScheduledThreadPool(10);
 
     private static final long DEFAULT_EXPLOSION_DELAY = 3000L;
 
     /**
-     * Places a bomb at the specified position for a player. Automatically schedules explosion after
+     * Places a bomb at the specified position for a player. Automatically schedules
+     * explosion after
      * delay.
      *
      * @param sessionId unique identifier of the session
-     * @param playerId unique identifier of the player placing bomb
-     * @param position coordinates where bomb is placed
+     * @param playerId  unique identifier of the player placing bomb
+     * @param position  coordinates where bomb is placed
      * @return Bomb instance if placement successful, null if position invalid
      * @throws IllegalArgumentException if sessionId, playerId, or position is null
      */
-    public Bomb placeBomb(String sessionId, String playerId, Point position) {
+    public Bomb placeBomb(String sessionId, String playerId, Point position, int range) {
         validateSessionId(sessionId);
         validatePlayerId(playerId);
         validatePosition(position);
@@ -62,7 +63,7 @@ public class BombService {
         String bombId = bomb.getId().toString();
         bombs.put(bombId, bomb);
 
-        scheduleBombExplosion(bombId, DEFAULT_EXPLOSION_DELAY);
+        // scheduleBombExplosion(bombId, DEFAULT_EXPLOSION_DELAY);
 
         return bomb;
     }
@@ -74,7 +75,7 @@ public class BombService {
      * @param bombId unique identifier of the bomb
      * @return list of Point instances representing affected tiles
      * @throws IllegalArgumentException if bombId is null or blank
-     * @throws IllegalStateException if bomb not found or already exploded
+     * @throws IllegalStateException    if bomb not found or already exploded
      */
     public List<Point> explodeBomb(String bombId) {
         validateBombId(bombId);
@@ -112,10 +113,11 @@ public class BombService {
     }
 
     /**
-     * Schedules a bomb explosion after specified delay. Uses ScheduledExecutorService for
+     * Schedules a bomb explosion after specified delay. Uses
+     * ScheduledExecutorService for
      * non-blocking timer.
      *
-     * @param bombId unique identifier of the bomb
+     * @param bombId         unique identifier of the bomb
      * @param explosionDelay delay in milliseconds until explosion
      * @throws IllegalArgumentException if bombId is null or delay invalid
      */
@@ -174,7 +176,8 @@ public class BombService {
     }
 
     /**
-     * Calculates affected tiles in cross pattern for bomb explosion. Propagates in 4 cardinal
+     * Calculates affected tiles in cross pattern for bomb explosion. Propagates in
+     * 4 cardinal
      * directions until hitting solid walls.
      *
      * @param bomb Bomb instance to calculate explosion for
@@ -197,13 +200,14 @@ public class BombService {
     }
 
     /**
-     * Calculates explosion propagation in a specific direction. Stops at solid walls, continues
+     * Calculates explosion propagation in a specific direction. Stops at solid
+     * walls, continues
      * through destructible walls but doesn't propagate beyond.
      *
      * @param origin starting point
-     * @param dx X direction delta (-1, 0, 1)
-     * @param dy Y direction delta (-1, 0, 1)
-     * @param range maximum tiles to propagate
+     * @param dx     X direction delta (-1, 0, 1)
+     * @param dy     Y direction delta (-1, 0, 1)
+     * @param range  maximum tiles to propagate
      * @return list of affected Point instances in this direction
      */
     private List<Point> calculateDirectionalExplosion(Point origin, int dx, int dy, int range) {
@@ -269,7 +273,8 @@ public class BombService {
     }
 
     /**
-     * Cleanup method to shutdown executor service gracefully. Should be called during application
+     * Cleanup method to shutdown executor service gracefully. Should be called
+     * during application
      * shutdown.
      */
     public void shutdown() {

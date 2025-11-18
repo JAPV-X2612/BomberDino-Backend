@@ -1,5 +1,7 @@
 package com.arsw.bomberdino.config;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -27,12 +29,22 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        String raw = System.getenv("WEBSOCKET_ALLOWED_ORIGINS");
+
+        String[] origins = (raw != null && !raw.isBlank())
+                ? Arrays.stream(raw.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .toArray(String[]::new)
+                : new String[] {
+                        "http://localhost:*",
+                        "https://localhost:*",
+                        "http://127.0.0.1:*",
+                        "https://127.0.0.1:*"
+                };
+
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(
-                    System.getenv("WEBSOCKET_ALLOWED_ORIGINS") != null
-                        ? System.getenv("WEBSOCKET_ALLOWED_ORIGINS")
-                        : "http://localhost:5173"
-                )
+                .setAllowedOriginPatterns(origins)
                 .withSockJS();
     }
 }
