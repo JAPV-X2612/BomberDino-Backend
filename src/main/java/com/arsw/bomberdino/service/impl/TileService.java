@@ -150,6 +150,32 @@ public class TileService {
     }
 
     /**
+     * Applies explosion effects to a tile at the specified position.
+     * Destroys the tile if it is destructible and performs additional
+     * explosion-related actions such as optional power-up spawning or temporary
+     * flame marking.
+     *
+     * @param sessionId unique identifier of the game session
+     * @param position  coordinates of the tile affected by explosion
+     */
+    public void applyExplosionToTile(String sessionId, Point position) {
+        Tile tile = getTile(sessionId, position);
+
+        if (tile == null) {
+            return;
+        }
+
+        if (tile.isDestructible()) {
+            tile.destroy();
+            // opcional: spawn de powerup
+            // powerUpService.maybeSpawnPowerUp(sessionId, position);
+        }
+
+        // Si tienes fuego temporal, también puedes marcar aquí que hay
+        // "explosion/flame"
+    }
+
+    /**
      * Creates a Point-indexed map for fast tile lookups.
      *
      * @param map GameMap containing the tile matrix

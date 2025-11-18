@@ -63,7 +63,7 @@ public class BombService {
         String bombId = bomb.getId().toString();
         bombs.put(bombId, bomb);
 
-        scheduleBombExplosion(bombId, DEFAULT_EXPLOSION_DELAY);
+        // scheduleBombExplosion(bombId, DEFAULT_EXPLOSION_DELAY);
 
         return bomb;
     }

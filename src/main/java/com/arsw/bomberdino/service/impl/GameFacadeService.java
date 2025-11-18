@@ -3,6 +3,9 @@ package com.arsw.bomberdino.service.impl;
 import java.awt.Point;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -51,6 +54,8 @@ public class GameFacadeService {
     private final CollisionService collisionService;
     private final TileService tileService;
     private final ApplicationEventPublisher eventPublisher;
+
+    private final ScheduledExecutorService explosionScheduler = Executors.newSingleThreadScheduledExecutor();
 
     /**
      * Handles player movement request. Validates movement, updates tile
@@ -151,7 +156,7 @@ public class GameFacadeService {
 
         tileService.markBomb(sessionId, position, true);
         session.getActiveBombs().add(bomb);
-        scheduleBombExplosion(bomb);
+        scheduleBombExplosion(sessionId, bomb);
         publishGameStateChangedEvent(sessionId);
 
         return getGameState(sessionId);
@@ -229,11 +234,15 @@ public class GameFacadeService {
      * @param sessionId session identifier
      * @param bomb      bomb to schedule
      */
-    private void scheduleBombExplosion(Bomb bomb) {
-        String bombId = bomb.getId().toString();
+    private void scheduleBombExplosion(String sessionId, Bomb bomb) {
         long delay = bomb.getExplosionDelay();
 
-        bombService.scheduleBombExplosion(bombId, delay);
+        explosionScheduler.schedule(() -> {
+            try {
+                processBombExplosion(sessionId, bomb);
+            } catch (Exception e) {
+            }
+        }, delay, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -247,6 +256,11 @@ public class GameFacadeService {
         String bombId = bomb.getId().toString();
 
         List<Point> affectedTiles = collisionService.handleBombExplosion(sessionId, bombId, bomb.getRange());
+
+        for (Point tilePos : affectedTiles) {
+            // Aquí usas tu TileService / GameMap para destruir bloques
+            tileService.applyExplosionToTile(sessionId, tilePos);
+        }
 
         Point bombPosition = new Point(bomb.getPosX(), bomb.getPosY());
         tileService.markBomb(sessionId, bombPosition, false);
