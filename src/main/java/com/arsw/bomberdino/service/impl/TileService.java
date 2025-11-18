@@ -14,7 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Thread-safe service for managing tile occupation state across game sessions.
- * Critical for preventing race conditions when multiple players attempt to occupy same tile.
+ * Critical for preventing race conditions when multiple players attempt to
+ * occupy same tile.
  * Uses synchronized methods to ensure atomic occupation checks and updates.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
@@ -45,7 +46,7 @@ public class TileService {
             return false;
         }
 
-        return tile.isOccupied();
+        return tile.isOccupied() || tile.hasBomb();
     }
 
     /**
@@ -146,6 +147,32 @@ public class TileService {
         } else {
             tile.removeBomb();
         }
+    }
+
+    /**
+     * Applies explosion effects to a tile at the specified position.
+     * Destroys the tile if it is destructible and performs additional
+     * explosion-related actions such as optional power-up spawning or temporary
+     * flame marking.
+     *
+     * @param sessionId unique identifier of the game session
+     * @param position  coordinates of the tile affected by explosion
+     */
+    public void applyExplosionToTile(String sessionId, Point position) {
+        Tile tile = getTile(sessionId, position);
+
+        if (tile == null) {
+            return;
+        }
+
+        if (tile.isDestructible()) {
+            tile.destroy();
+            // opcional: spawn de powerup
+            // powerUpService.maybeSpawnPowerUp(sessionId, position);
+        }
+
+        // Si tienes fuego temporal, también puedes marcar aquí que hay
+        // "explosion/flame"
     }
 
     /**

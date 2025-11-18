@@ -13,8 +13,8 @@ import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Tile entity representing a single grid cell on the game map. Thread-safe for concurrent access
- * during gameplay.
+ * Tile entity representing a single grid cell on the game map. Thread-safe for
+ * concurrent access during gameplay.
  *
  * @author Mapunix, Rivaceraptos, Yisus-Rex
  * @version 1.0
@@ -40,7 +40,8 @@ public class Tile extends GameEntity implements Destructible {
     private static final double POWERUP_DROP_RATE = 0.3;
 
     /**
-     * Destroys the tile if destructible. Converts destructible walls to empty tiles.
+     * Destroys the tile if destructible. Converts destructible walls to empty
+     * tiles.
      *
      * @throws IllegalStateException if tile is not destructible
      */
@@ -119,8 +120,8 @@ public class Tile extends GameEntity implements Destructible {
     }
 
     /**
-     * Thread-safe method to place a bomb on this tile. Allows player to place bomb on their current
-     * position.
+     * Thread-safe method to place a bomb on this tile. Allows player to place bomb
+     * on their current position.
      *
      * @return true if bomb placed successfully, false if tile already has bomb
      */
@@ -131,7 +132,6 @@ public class Tile extends GameEntity implements Destructible {
                 return false;
             }
             this.hasBomb = true;
-            this.occupied = true;
             return true;
         } finally {
             lock.unlock();
