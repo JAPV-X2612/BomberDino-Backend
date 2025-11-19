@@ -282,6 +282,8 @@ public class GameFacadeService {
 
                 if (!player.isAlive()) {
                     handlePlayerDeath(sessionId, null, playerId);
+                } else {
+                    player.respawn();
                 }
             }
         }
