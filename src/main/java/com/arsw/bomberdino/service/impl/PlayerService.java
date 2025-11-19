@@ -14,7 +14,8 @@ import java.awt.Point;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Service for managing player state, movement, and lifecycle. Handles player damage, respawning,
+ * Service for managing player state, movement, and lifecycle. Handles player
+ * damage, respawning,
  * and power-up effects. Thread-safe for concurrent player actions.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
@@ -30,11 +31,11 @@ public class PlayerService {
     /**
      * Creates a new player with default attributes.
      *
-     * @param playerId unique identifier for the player
-     * @param username display name for the player
+     * @param playerId   unique identifier for the player
+     * @param username   display name for the player
      * @param spawnPoint initial spawn position
      * @return newly created Player instance
-     * @throws ValidationException if parameters are null or blank
+     * @throws ValidationException   if parameters are null or blank
      * @throws IllegalStateException if player already exists
      */
     public Player createPlayer(String playerId, String username, Point spawnPoint) {
@@ -58,14 +59,15 @@ public class PlayerService {
     }
 
     /**
-     * Moves a player to a new position. Updates player coordinates after movement validation.
+     * Moves a player to a new position. Updates player coordinates after movement
+     * validation.
      *
-     * @param playerId unique identifier of the player
+     * @param playerId    unique identifier of the player
      * @param newPosition target position for movement
      * @return updated Player instance
-     * @throws ValidationException if playerId or newPosition is null
+     * @throws ValidationException     if playerId or newPosition is null
      * @throws PlayerNotFoundException if player not found
-     * @throws IllegalStateException if player not alive
+     * @throws IllegalStateException   if player not alive
      */
     public Player movePlayer(String playerId, Point newPosition) {
         validatePlayerId(playerId);
@@ -85,12 +87,13 @@ public class PlayerService {
     }
 
     /**
-     * Kills a player and records the killer. Increments death counter and updates killer's kill
+     * Kills a player and records the killer. Increments death counter and updates
+     * killer's kill
      * count.
      *
      * @param killerId unique identifier of the killer player
      * @param victimId unique identifier of the victim player
-     * @throws ValidationException if killerId or victimId is null or blank
+     * @throws ValidationException     if killerId or victimId is null or blank
      * @throws PlayerNotFoundException if killer or victim not found
      */
     public void killPlayer(String killerId, String victimId) {
@@ -105,13 +108,14 @@ public class PlayerService {
     }
 
     /**
-     * Respawns a player at their spawn point. Resets player position and status to ALIVE.
+     * Respawns a player at their spawn point. Resets player position and status to
+     * ALIVE.
      *
      * @param playerId unique identifier of the player
      * @return respawned Player instance
-     * @throws ValidationException if playerId is null or blank
+     * @throws ValidationException     if playerId is null or blank
      * @throws PlayerNotFoundException if player not found
-     * @throws IllegalStateException if player cannot respawn
+     * @throws IllegalStateException   if player cannot respawn
      */
     public Player respawnPlayer(String playerId) {
         validatePlayerId(playerId);
@@ -128,11 +132,12 @@ public class PlayerService {
     }
 
     /**
-     * Applies a power-up effect to a player. Modifies player attributes based on PowerUpEffect.
+     * Applies a power-up effect to a player. Modifies player attributes based on
+     * PowerUpEffect.
      *
      * @param playerId unique identifier of the player
-     * @param effect PowerUpEffect to apply
-     * @throws ValidationException if playerId or effect is null
+     * @param effect   PowerUpEffect to apply
+     * @throws ValidationException     if playerId or effect is null
      * @throws PlayerNotFoundException if player not found
      */
     public void applyPowerUpEffect(String playerId, PowerUpEffect effect) {
@@ -151,7 +156,7 @@ public class PlayerService {
      *
      * @param playerId unique identifier of the player
      * @return Player instance
-     * @throws ValidationException if playerId is null or blank
+     * @throws ValidationException     if playerId is null or blank
      * @throws PlayerNotFoundException if player not found
      */
     public Player getPlayer(String playerId) {

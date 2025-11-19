@@ -241,6 +241,8 @@ public class GameFacadeService {
             try {
                 processBombExplosion(sessionId, bomb);
             } catch (Exception e) {
+                System.err.printf("Error processing bomb explosion in session {} for bomb {}",
+                        sessionId, bomb.getId(), e);
             }
         }, delay, TimeUnit.MILLISECONDS);
     }
@@ -281,7 +283,11 @@ public class GameFacadeService {
                 player.takeDamage(1);
 
                 if (!player.isAlive()) {
-                    handlePlayerDeath(sessionId, null, playerId);
+                    try {
+                        handlePlayerDeath(sessionId, null, playerId);
+                    } catch (Exception e) {
+                        System.err.printf("Error handling death of player {} in session {}", playerId, sessionId, e);
+                    }
                 } else {
                     player.respawn();
                 }
@@ -302,7 +308,8 @@ public class GameFacadeService {
      * @param victimId  victim player ID
      */
     private void handlePlayerDeath(String sessionId, String killerId, String victimId) {
-        playerService.incrementDeaths(victimId);
+        // playerService.incrementDeaths(victimId); // Ya se incrementa en
+        // player.takedamage(int)
 
         if (killerId != null && !killerId.equals(victimId)) {
             playerService.incrementKills(killerId);
