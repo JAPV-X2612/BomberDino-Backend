@@ -7,6 +7,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -46,6 +48,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class GameFacadeService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GameFacadeService.class);
 
     private final GameSessionService gameSessionService;
     private final PlayerService playerService;
@@ -241,7 +245,7 @@ public class GameFacadeService {
             try {
                 processBombExplosion(sessionId, bomb);
             } catch (Exception e) {
-                System.err.printf("Error processing bomb explosion in session {} for bomb {}",
+                logger.error("Error processing bomb explosion in session {} for bomb {}",
                         sessionId, bomb.getId(), e);
             }
         }, delay, TimeUnit.MILLISECONDS);
@@ -286,7 +290,7 @@ public class GameFacadeService {
                     try {
                         handlePlayerDeath(sessionId, null, playerId);
                     } catch (Exception e) {
-                        System.err.printf("Error handling death of player {} in session {}", playerId, sessionId, e);
+                        logger.error("Error handling death of player {} in session {}", playerId, sessionId, e);
                     }
                 } else {
                     player.respawn();
