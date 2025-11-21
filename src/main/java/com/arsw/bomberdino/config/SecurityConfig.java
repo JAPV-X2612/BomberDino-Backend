@@ -11,13 +11,11 @@ import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
-import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtDecoders;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import java.util.List;
 
 /**
@@ -71,20 +69,28 @@ public class SecurityConfig {
      */
     @Bean
     public JwtDecoder jwtDecoder() {
-        String issuerUri = String.format("https://login.microsoftonline.com/%s/v2.0", tenantId);
+        String jwkSetUri = "https://login.microsoftonline.com/common/discovery/v2.0/keys";
 
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 
-        OAuth2TokenValidator<Jwt> defaultValidators =
-                JwtValidators.createDefaultWithIssuer(issuerUri);
+        OAuth2TokenValidator<Jwt> audienceValidator = token -> {
+            Object audClaim = token.getClaim(JwtClaimNames.AUD);
+            boolean valid = false;
 
-        OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>(
-                JwtClaimNames.AUD, aud -> aud != null && aud.contains(clientId));
+            if (audClaim instanceof String aud) {
+                valid = clientId.equals(aud);
+            } else if (audClaim instanceof List<?> audList) {
+                valid = audList.contains(clientId);
+            }
 
-        OAuth2TokenValidator<Jwt> combinedValidator =
-                new DelegatingOAuth2TokenValidator<>(defaultValidators, audienceValidator);
+            if (valid) {
+                return OAuth2TokenValidatorResult.success();
+            }
+            return OAuth2TokenValidatorResult
+                    .failure(new OAuth2Error("invalid_audience", "Invalid audience", null));
+        };
 
-        jwtDecoder.setJwtValidator(combinedValidator);
+        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(audienceValidator));
 
         return jwtDecoder;
     }
