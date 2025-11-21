@@ -264,7 +264,6 @@ public class GameFacadeService {
         List<Point> affectedTiles = collisionService.handleBombExplosion(sessionId, bombId, bomb.getRange());
 
         for (Point tilePos : affectedTiles) {
-            // Aquí usas tu TileService / GameMap para destruir bloques
             tileService.applyExplosionToTile(sessionId, tilePos);
         }
 
@@ -279,11 +278,14 @@ public class GameFacadeService {
             Player player = session.getPlayers().stream()
                     .filter(p -> p.getId().toString().equals(playerId)).findFirst().orElse(null);
 
-            if (player == null) {
+            if (player == null)
                 continue;
-            }
+
+            Point currentPos = new Point(player.getPosX(), player.getPosY());
 
             if (!player.hasActiveShield()) {
+                tileService.releaseOccupation(sessionId, currentPos);
+
                 player.takeDamage(1);
 
                 if (!player.isAlive()) {
@@ -294,6 +296,13 @@ public class GameFacadeService {
                     }
                 } else {
                     player.respawn();
+
+                    Point spawnPos = new Point(player.getPosX(), player.getPosY());
+
+                    boolean success = tileService.tryOccupy(sessionId, spawnPos, false);
+
+                    if (!success)
+                        logger.error("Failed to occupy spawn tile {} for player {}", spawnPos, playerId);
                 }
             }
         }
