@@ -36,7 +36,7 @@ import java.util.List;
 public class Player extends GameEntity implements Movable, Destructible {
 
     @NotBlank(message = "Username cannot be blank")
-    @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
+    @Size(min = 3, max = 100, message = "Username must be between 3 and 100 characters")
     private String username;
 
     @Min(value = 0, message = "Life count cannot be negative")

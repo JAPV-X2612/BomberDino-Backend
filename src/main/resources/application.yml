@@ -23,6 +23,19 @@ spring:
         queue-capacity: 100
       thread-name-prefix: async-task-
 
+  # Microsoft Entra ID Configuration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+          jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
+
+# Azure Credentials
+azure:
+  tenant-id: ${AZURE_TENANT_ID:fda6941b-6261-4982-9460-24a10346780b}
+  client-id: ${AZURE_CLIENT_ID:990dc266-798b-4a1a-b8c4-0fe59148a1ae}
+
 # Game Configuration
 game:
   bomb:

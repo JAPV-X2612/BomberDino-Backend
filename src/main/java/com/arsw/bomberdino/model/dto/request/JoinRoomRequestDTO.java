@@ -28,7 +28,7 @@ public class JoinRoomRequestDTO {
     private String playerId;
 
     @NotBlank(message = "Username cannot be blank")
-    @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
+    @Size(min = 3, max = 100, message = "Username must be between 3 and 100 characters")
     private String username;
 
     @Size(max = 50, message = "Password cannot exceed 50 characters")
