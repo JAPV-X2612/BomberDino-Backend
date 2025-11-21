@@ -67,7 +67,7 @@ public class GameController {
         try {
             UUID roomId = UUID.randomUUID();
             String roomIdStr = roomId.toString();
-            String roomCode = roomId.toString().substring(0, 6).toUpperCase(); // 👈 Código corto
+            String roomCode = roomId.toString().substring(0, 6).toUpperCase();
 
             GameRoom room = GameRoom.builder().roomId(roomId).name(request.getRoomName())
                     .roomCode(roomCode)

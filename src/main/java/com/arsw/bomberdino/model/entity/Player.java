@@ -123,8 +123,7 @@ public class Player extends GameEntity implements Movable, Destructible {
 
     /**
      * Kills the player and increments death counter. Changes status to DEAD or
-     * SPECTATING based on
-     * remaining lives.
+     * SPECTATING based on remaining lives.
      */
     public void die() {
         this.deaths++;
