@@ -139,9 +139,7 @@ jobs:
       - name: Deploy to Railway Production
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-        run: |
-          railway link ${{ secrets.RAILWAY_PROJECT_ID_PROD }}
-          railway up --detach
+        run: railway up --detach
 
   deploy-development:
     name: Deploy to Development
@@ -162,6 +160,4 @@ jobs:
       - name: Deploy to Railway Development
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
-        run: |
-          railway link ${{ secrets.RAILWAY_PROJECT_ID_DEV }}
-          railway up --detach
+        run: railway up --detach
