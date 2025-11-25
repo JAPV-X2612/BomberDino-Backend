@@ -162,6 +162,7 @@
                             <exclude>**/model/*</exclude>
                             <exclude>**/dto/*</exclude>
                             <exclude>**/enums/*</exclude>
+                            <exclude>**/event/*</exclude>
                             <exclude>**/config/*</exclude>
                             <exclude>**/security/*</exclude>
                             <exclude>**/BomberDinoApplication.class</exclude>
