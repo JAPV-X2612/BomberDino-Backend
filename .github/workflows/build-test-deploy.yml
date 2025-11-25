@@ -139,7 +139,7 @@ jobs:
       - name: Deploy to Railway Production
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-        run: railway up --detach
+        run: railway up --service=${{ secrets.RAILWAY_SERVICE_NAME_PROD }} --detach
 
   deploy-development:
     name: Deploy to Development
@@ -160,4 +160,4 @@ jobs:
       - name: Deploy to Railway Development
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
-        run: railway up --detach
+        run: railway up --service=${{ secrets.RAILWAY_SERVICE_NAME_DEV }} --detach
