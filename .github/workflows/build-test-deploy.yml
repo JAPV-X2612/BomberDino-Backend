@@ -59,17 +59,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build-files
-          path: target/
-
-      - name: Run Tests
-        run: mvn test -B
-
-      - name: Generate Coverage Report
-        run: mvn jacoco:report
+      - name: Run Tests with Coverage
+        run: mvn test jacoco:report -B
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
@@ -77,6 +68,13 @@ jobs:
           name: coverage-reports
           path: target/site/jacoco/
           retention-days: 5
+
+      - name: Upload JaCoCo XML for SonarCloud
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-xml
+          path: target/site/jacoco/jacoco.xml
+          retention-days: 1
 
   sonarcloud:
     name: SonarCloud Analysis
@@ -103,17 +101,14 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Download build artifact
+      - name: Download JaCoCo XML
         uses: actions/download-artifact@v4
         with:
-          name: build-files
-          path: target/
-
-      - name: Download coverage reports
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-reports
+          name: jacoco-xml
           path: target/site/jacoco/
+
+      - name: Build for SonarCloud
+        run: mvn compile -B
 
       - name: SonarCloud Analysis
         env:
