@@ -8,6 +8,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.arsw.bomberdino.exception.ValidationException;
 import com.arsw.bomberdino.model.entity.GameMap;
@@ -32,8 +34,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameSessionService {
 
+    private static final Logger logger = LoggerFactory.getLogger(GameSessionService.class);
+
     private final TileService tileService;
     private final GameMapService gameMapService;
+    private final GameStateCacheService cacheService;
+    private final DistributedLockService lockService;
 
     /**
      * In-memory storage for active game sessions. Key: sessionId, Value:
@@ -59,21 +65,30 @@ public class GameSessionService {
         validateRoomId(roomId);
         validateMaxPlayers(maxPlayers);
 
-        if (sessions.containsKey(roomId)) {
-            throw new IllegalStateException("Session already exists for room: " + roomId);
-        }
+        return lockService.executeWithLock(UUID.fromString(roomId), () -> {
+            if (sessions.containsKey(roomId)) {
+                throw new IllegalStateException("Session already exists for room: " + roomId);
+            }
 
-        GameMap map = gameMapService.createMap(roomId, 13, 13);
-        tileService.initializeTiles(roomId, map);
+            GameMap map = gameMapService.createMap(roomId, 13, 13);
+            tileService.initializeTiles(roomId, map);
 
-        GameSession session = GameSession.builder().sessionId(UUID.randomUUID())
-                .status(GameStatus.WAITING).map(map).players(new ArrayList<>())
-                .activeBombs(new ArrayList<>()).activeExplosions(new ArrayList<>())
-                .availablePowerUps(new ArrayList<>()).roundDuration(DEFAULT_ROUND_DURATION).build();
+            GameSession session = GameSession.builder()
+                    .sessionId(UUID.randomUUID())
+                    .status(GameStatus.WAITING)
+                    .map(map)
+                    .players(new ArrayList<>())
+                    .activeBombs(new ArrayList<>())
+                    .activeExplosions(new ArrayList<>())
+                    .availablePowerUps(new ArrayList<>())
+                    .roundDuration(DEFAULT_ROUND_DURATION)
+                    .build();
 
-        sessions.put(roomId, session);
+            sessions.put(roomId, session);
+            cacheService.saveGameState(session.getSessionId(), session);
 
-        return session;
+            return session;
+        });
     }
 
     /**
@@ -170,11 +185,18 @@ public class GameSessionService {
      */
     public GameSession getSession(String sessionId) {
         validateSessionId(sessionId);
-
         GameSession session = sessions.get(sessionId);
 
         if (session == null) {
-            throw new IllegalStateException("Session not found: " + sessionId);
+            UUID uuid = UUID.fromString(sessionId);
+            session = cacheService.getGameState(uuid);
+
+            if (session != null) {
+                sessions.put(sessionId, session);
+                logger.debug("Loaded session from Redis cache: {}", sessionId);
+            } else {
+                throw new IllegalStateException("Session not found: " + sessionId);
+            }
         }
 
         return session;
@@ -263,14 +285,18 @@ public class GameSessionService {
     public void updateGameState(String sessionId) {
         validateSessionId(sessionId);
 
-        GameSession session = getSession(sessionId);
+        lockService.executeWithLock(UUID.fromString(sessionId), () -> {
+            GameSession session = getSession(sessionId);
 
-        if (session.getStatus() != GameStatus.IN_PROGRESS) {
-            return;
-        }
+            if (session.getStatus() != GameStatus.IN_PROGRESS) {
+                return null;
+            }
 
-        session.update(0.016f); // 60 FPS delta time
+            session.update(0.016f);
+            cacheService.saveGameState(session.getSessionId(), session);
 
+            return null;
+        });
     }
 
     /**
