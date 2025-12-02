@@ -5,19 +5,26 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import com.arsw.bomberdino.controller.websocket.WebSocketController;
 import com.arsw.bomberdino.model.dto.response.BombExplodedDTO;
+import com.arsw.bomberdino.model.dto.response.BombPlacedEventDTO;
 import com.arsw.bomberdino.model.dto.response.GameStateDTO;
 import com.arsw.bomberdino.model.dto.response.PlayerKilledDTO;
+import com.arsw.bomberdino.model.dto.response.PlayerMovedEventDTO;
 import com.arsw.bomberdino.model.dto.response.PointDTO;
+import com.arsw.bomberdino.model.entity.Bomb;
+import com.arsw.bomberdino.model.entity.GameSession;
+import com.arsw.bomberdino.model.entity.Player;
 import com.arsw.bomberdino.model.event.BombExplodedEvent;
-import com.arsw.bomberdino.model.event.GameStateChangedEvent;
+import com.arsw.bomberdino.model.event.BombPlacedEvent;
 import com.arsw.bomberdino.model.event.PlayerKilledEvent;
+import com.arsw.bomberdino.model.event.PlayerMovedEvent;
 import com.arsw.bomberdino.model.event.PowerUpCollectedEvent;
-import com.arsw.bomberdino.service.impl.GameFacadeService;
+import com.arsw.bomberdino.service.impl.GameSessionService;
+import com.arsw.bomberdino.util.SequenceNumberManager;
 
 /**
  * Event listener for domain events that require WebSocket broadcasting. Listens
@@ -33,103 +40,139 @@ public class WebSocketEventListener {
 
     private static final Logger logger = LoggerFactory.getLogger(WebSocketEventListener.class);
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final GameFacadeService gameFacadeService;
+    private final WebSocketController webSocketController;
+    private final GameSessionService gameSessionService;
+    private final SequenceNumberManager sequenceNumberManager;
 
     private static final String GAME_TOPIC_PREFIX = "/topic/game/";
-    private static final String STATE_SUFFIX = "/state";
-    private static final String KILL_SUFFIX = "/kill";
-    private static final String EXPLOSION_SUFFIX = "/explosion";
-    private static final String POWERUP_SUFFIX = "/powerup";
 
-    public WebSocketEventListener(SimpMessagingTemplate messagingTemplate,
-            GameFacadeService gameFacadeService) {
-        this.messagingTemplate = messagingTemplate;
-        this.gameFacadeService = gameFacadeService;
+    public WebSocketEventListener(
+            WebSocketController webSocketController,
+            GameSessionService gameSessionService,
+            SequenceNumberManager sequenceNumberManager) {
+        this.webSocketController = webSocketController;
+        this.gameSessionService = gameSessionService;
+        this.sequenceNumberManager = sequenceNumberManager;
     }
 
     /**
-     * Handles GameStateChangedEvent by broadcasting full game state. Sends
-     * GameStateDTO to all clients subscribed to the session topic.
-     *
-     * @param event GameStateChangedEvent containing session ID
+     * ==================== LIGHTWEIGHT EVENTS ==================== These send
+     * ONLY what changed (delta updates)
      */
-    @EventListener
-    @Async
-    public void onGameStateChanged(GameStateChangedEvent event) {
-        try {
-            String sessionId = event.getSessionId();
-            logger.debug("Processing GameStateChangedEvent for session: {}", sessionId);
-
-            GameStateDTO gameState = gameFacadeService.getGameState(sessionId);
-
-            String destination = GAME_TOPIC_PREFIX + sessionId + STATE_SUFFIX;
-            messagingTemplate.convertAndSend(destination, gameState);
-
-            logger.info("Broadcasted game state to {} with {} players, {} bombs, {} power-ups",
-                    destination,
-                    gameState.getPlayers().size(),
-                    gameState.getBombs().size(),
-                    gameState.getPowerUps().size());
-
-        } catch (Exception e) {
-            logger.error("Error broadcasting game state for session {}: {}",
-                    event.getSessionId(), e.getMessage(), e);
-        }
-    }
-
     /**
-     * Handles PlayerKilledEvent by broadcasting kill notification. Sends
-     * PlayerKilledDTO to all clients for UI kill feed updates.
+     * Handles PlayerMovedEvent by broadcasting lightweight movement delta.
      *
-     * @param event PlayerKilledEvent containing killer and victim IDs
+     * Payload size: ~100 bytes (vs ~5KB for full state) Frequency: High (every
+     * player input)
+     *
+     * @param event PlayerMovedEvent containing player ID and new position
      */
     @EventListener
     @Async
-    public void onPlayerKilled(PlayerKilledEvent event) {
+    public void onPlayerMoved(PlayerMovedEvent event) {
         try {
             String sessionId = event.getSessionId();
-            logger.debug("Processing PlayerKilledEvent for session: {} (killer: {}, victim: {})",
-                    sessionId, event.getKillerId(), event.getVictimId());
+            GameSession session = gameSessionService.getSession(sessionId);
 
-            PlayerKilledDTO dto = PlayerKilledDTO.builder()
-                    .sessionId(sessionId)
-                    .killerId(event.getKillerId())
-                    .victimId(event.getVictimId())
+            Player player = session.getPlayers().stream()
+                    .filter(p -> p.getId().toString().equals(event.getPlayerId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (player == null) {
+                logger.warn("⚠️ Player {} not found for movement event", event.getPlayerId());
+                return;
+            }
+
+            PlayerMovedEventDTO dto = PlayerMovedEventDTO.builder()
+                    .playerId((String) event.getPlayerId())
+                    .newX(player.getPosX())
+                    .newY(player.getPosY())
+                    .direction(event.getDirection())
+                    .sequenceNumber(sequenceNumberManager.getNextSequenceNumber(sessionId))
                     .timestamp(System.currentTimeMillis())
                     .build();
 
-            String destination = GAME_TOPIC_PREFIX + sessionId + KILL_SUFFIX;
-            messagingTemplate.convertAndSend(destination, dto);
+            webSocketController.broadcastPlayerMoved(sessionId, dto);
 
-            logger.info("Broadcasted player kill to {} (killer: {}, victim: {})",
-                    destination, event.getKillerId(), event.getVictimId());
-
-            onGameStateChanged(GameStateChangedEvent.of(sessionId));
+            logger.debug("📤 Player {} moved to ({}, {}) - sent delta (~100 bytes)",
+                    event.getPlayerId(), player.getPosX(), player.getPosY());
 
         } catch (Exception e) {
-            logger.error("Error broadcasting player killed event for session {}: {}",
-                    event.getSessionId(), e.getMessage(), e);
+            logger.error("❌ Error broadcasting player movement: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Handles BombExplodedEvent by broadcasting explosion details. Sends
-     * BombExplodedDTO with affected tiles for client-side animation.
+     * Handles BombPlacedEvent by broadcasting lightweight bomb creation delta.
      *
-     * @param event BombExplodedEvent containing explosion data
+     * Payload size: ~150 bytes (vs ~5KB for full state) Frequency: Medium (when
+     * players place bombs)
+     *
+     * @param event BombPlacedEvent containing bomb details
+     */
+    @EventListener
+    @Async
+    public void onBombPlaced(BombPlacedEvent event) {
+        try {
+            String sessionId = event.getSessionId();
+            GameSession session = gameSessionService.getSession(sessionId);
+
+            Bomb bomb = session.getActiveBombs().stream()
+                    .filter(b -> b.getId().toString().equals(event.getBombId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (bomb == null) {
+                logger.warn("⚠️ Bomb {} not found for placement event", event.getBombId());
+                return;
+            }
+
+            BombPlacedEventDTO dto = BombPlacedEventDTO.builder()
+                    .bombId((String) event.getBombId())
+                    .playerId(event.getPlayerId())
+                    .x(bomb.getPosX())
+                    .y(bomb.getPosY())
+                    .range(bomb.getRange())
+                    .timeToExplode(bomb.getTimeUntilExplosion())
+                    .sequenceNumber(sequenceNumberManager.getNextSequenceNumber(sessionId))
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+
+            webSocketController.broadcastBombPlaced(sessionId, dto);
+
+            logger.debug("📤 Bomb {} placed at ({}, {}) - sent delta (~150 bytes)",
+                    event.getBombId(), bomb.getPosX(), bomb.getPosY());
+
+        } catch (Exception e) {
+            logger.error("❌ Error broadcasting bomb placement: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * ==================== FULL STATE EVENTS ==================== These send
+     * complete game state because many things change at once
+     */
+    /**
+     * Handles BombExplodedEvent with FULL STATE synchronization.
+     *
+     * Why full state? Because explosions affect: - Destroyed blocks (tiles
+     * change) - Damaged players (lives, position, status change) - Spawned
+     * power-ups (new entities appear) - Removed bomb (entity disappears)
+     *
+     * Sending individual deltas would require 10+ messages. Full state is
+     * actually MORE efficient here.
+     *
+     * @param event BombExplodedEvent containing explosion details
      */
     @EventListener
     @Async
     public void onBombExploded(BombExplodedEvent event) {
         try {
             String sessionId = event.getSessionId();
-            logger.debug("Processing BombExplodedEvent for session: {} (bomb: {}, tiles: {}, players: {})",
-                    sessionId, event.getBombId(),
-                    event.getAffectedTilesCount(),
-                    event.getAffectedPlayers().size());
 
-            BombExplodedDTO dto = BombExplodedDTO.builder()
+            // Send explosion event for visual effects (fireball animation, sound)
+            BombExplodedDTO explosionDto = BombExplodedDTO.builder()
                     .sessionId(sessionId)
                     .bombId(event.getBombId())
                     .affectedTiles(event.getAffectedTiles().stream()
@@ -142,25 +185,58 @@ public class WebSocketEventListener {
                     .timestamp(System.currentTimeMillis())
                     .build();
 
-            String destination = GAME_TOPIC_PREFIX + sessionId + EXPLOSION_SUFFIX;
-            messagingTemplate.convertAndSend(destination, dto);
+            webSocketController.broadcastBombExploded(sessionId, explosionDto);
 
-            logger.info("Broadcasted bomb explosion to {} (bomb: {}, affected tiles: {}, affected players: {})",
-                    destination, event.getBombId(),
-                    event.getAffectedTilesCount(),
-                    event.getAffectedPlayers().size());
+            // Send FULL STATE for synchronization (many entities changed)
+            GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
+            webSocketController.broadcastGameState(sessionId, fullState);
 
-            onGameStateChanged(GameStateChangedEvent.of(sessionId));
+            logger.info("💥 Bomb exploded - sent explosion event + full state (~5KB)");
 
         } catch (Exception e) {
-            logger.error("Error broadcasting bomb exploded event for session {}: {}",
-                    event.getSessionId(), e.getMessage(), e);
+            logger.error("❌ Error broadcasting bomb explosion: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Handles PowerUpCollectedEvent by broadcasting collection notification.
-     * Sends power-up effect details to clients for UI feedback.
+     * Handles PlayerKilledEvent with FULL STATE synchronization.
+     *
+     * Why full state? Because deaths affect: - Player lives (decremented) -
+     * Player position (respawn point) - Player status (ALIVE/DEAD/SPECTATING) -
+     * Killer's score (kills incremented) - Game status (might trigger end
+     * condition)
+     *
+     * @param event PlayerKilledEvent containing killer and victim IDs
+     */
+    @EventListener
+    @Async
+    public void onPlayerKilled(PlayerKilledEvent event) {
+        try {
+            String sessionId = event.getSessionId();
+
+            // Send kill event for UI notifications (kill feed)
+            PlayerKilledDTO dto = PlayerKilledDTO.builder()
+                    .sessionId(sessionId)
+                    .killerId(event.getKillerId())
+                    .victimId(event.getVictimId())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+
+            webSocketController.broadcastPlayerKilled(sessionId, dto);
+
+            // Send FULL STATE for synchronization (player states changed)
+            GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
+            webSocketController.broadcastGameState(sessionId, fullState);
+
+            logger.info("💀 Player killed - sent kill event + full state (~5KB)");
+
+        } catch (Exception e) {
+            logger.error("❌ Error broadcasting player death: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Handles PowerUpCollectedEvent with FULL STATE synchronization.
      *
      * @param event PowerUpCollectedEvent containing player and power-up data
      */
@@ -169,41 +245,38 @@ public class WebSocketEventListener {
     public void onPowerUpCollected(PowerUpCollectedEvent event) {
         try {
             String sessionId = event.getSessionId();
-            logger.debug("Processing PowerUpCollectedEvent for session: {} (player: {}, powerUp: {}, type: {})",
-                    sessionId, event.getPlayerId(), event.getPowerUpId(), event.getPowerUpType());
 
-            String destination = GAME_TOPIC_PREFIX + sessionId + POWERUP_SUFFIX;
-            messagingTemplate.convertAndSend(destination, event);
+            // Send power-up event for visual feedback
+            webSocketController.broadcastToSession(sessionId, "/powerup", event);
 
-            logger.info("Broadcasted power-up collection to {} (player: {}, type: {})",
-                    destination, event.getPlayerId(), event.getPowerUpType());
+            // Send FULL STATE (power-up removed, player stats changed)
+            GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
+            webSocketController.broadcastGameState(sessionId, fullState);
 
-            onGameStateChanged(GameStateChangedEvent.of(sessionId));
+            logger.debug("⭐ Power-up collected - sent event + full state");
 
         } catch (Exception e) {
-            logger.error("Error broadcasting power-up collected event for session {}: {}",
-                    event.getSessionId(), e.getMessage(), e);
+            logger.error("❌ Error broadcasting power-up collection: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Broadcasts a custom message to a session topic. Utility method for ad-hoc
-     * notifications.
-     *
-     * @param sessionId session identifier
-     * @param suffix topic suffix (e.g., "/notification")
-     * @param payload message payload
+     * ==================== IGNORED EVENTS ==================== These are now
+     * handled by periodic sync instead of per-action
      */
-    public void broadcastToSession(String sessionId, String suffix, Object payload) {
-        try {
-            String destination = GAME_TOPIC_PREFIX + sessionId + suffix;
-            messagingTemplate.convertAndSend(destination, payload);
-
-            logger.debug("Broadcasted custom message to {}", destination);
-
-        } catch (Exception e) {
-            logger.error("Error broadcasting custom message to session {}: {}",
-                    sessionId, e.getMessage(), e);
-        }
-    }
+    /**
+     * GameStateChangedEvent is NO LONGER broadcasted immediately.
+     *
+     * Why? Because: 1. Specific events (PlayerMovedEvent, BombPlacedEvent)
+     * handle deltas 2. Critical events (BombExplodedEvent, PlayerKilledEvent)
+     * send full state 3. PeriodicSyncScheduler sends full state every 5s as
+     * checkpoint
+     *
+     * Commenting this out ELIMINATES 90% of redundant broadcasts.
+     */
+    // @EventListener
+    // @Async
+    // public void onGameStateChanged(GameStateChangedEvent event) {
+    //     // DISABLED - Replaced by hybrid delta/sync strategy
+    // }
 }

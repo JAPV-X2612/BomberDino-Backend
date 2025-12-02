@@ -14,10 +14,14 @@ import com.arsw.bomberdino.exception.InvalidMoveException;
 import com.arsw.bomberdino.model.dto.request.PlaceBombRequestDTO;
 import com.arsw.bomberdino.model.dto.request.PlayerMoveRequestDTO;
 import com.arsw.bomberdino.model.dto.request.PowerUpCollectRequestDTO;
-import com.arsw.bomberdino.model.dto.response.*;
-import com.arsw.bomberdino.model.entity.Bomb;
+import com.arsw.bomberdino.model.dto.response.BombExplodedDTO;
+import com.arsw.bomberdino.model.dto.response.BombPlacedEventDTO;
+import com.arsw.bomberdino.model.dto.response.GameStateDTO;
+import com.arsw.bomberdino.model.dto.response.HeartbeatEventDTO;
+import com.arsw.bomberdino.model.dto.response.PlayerKilledDTO;
+import com.arsw.bomberdino.model.dto.response.PlayerMovedEventDTO;
 import com.arsw.bomberdino.model.entity.GameSession;
-import com.arsw.bomberdino.model.entity.Player;
+import com.arsw.bomberdino.model.event.PowerUpCollectedEvent;
 import com.arsw.bomberdino.service.impl.GameFacadeService;
 import com.arsw.bomberdino.service.impl.GameSessionService;
 import com.arsw.bomberdino.util.SequenceNumberManager;
@@ -25,9 +29,9 @@ import com.arsw.bomberdino.util.SequenceNumberManager;
 import jakarta.validation.Valid;
 
 /**
- * WebSocket controller for real-time game interactions. Handles player actions via STOMP protocol
- * and delegates to GameFacadeService. Does NOT broadcast directly - events are published and
- * handled by WebSocketEventListener.
+ * WebSocket controller for real-time game interactions. Handles player actions
+ * via STOMP protocol and delegates to GameFacadeService. Does NOT broadcast
+ * directly - events are published and handled by WebSocketEventListener.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
  * @version 1.0
@@ -53,8 +57,8 @@ public class WebSocketController {
     }
 
     /**
-     * Handles player movement requests via WebSocket. Validates movement and updates player
-     * position through GameFacadeService.
+     * Handles player movement requests via WebSocket. Validates movement and
+     * updates player position through GameFacadeService.
      *
      * Endpoint: /app/game/move
      *
@@ -68,47 +72,39 @@ public class WebSocketController {
             logger.debug("🎮 Received move request from player {} in session {} (direction: {})",
                     request.getPlayerId(), request.getSessionId(), request.getDirection());
 
-            gameFacadeService.handlePlayerMove(request.getSessionId(), request.getPlayerId(),
-                    request.getDirection());
+            // Procesar movimiento
+            gameFacadeService.handlePlayerMove(
+                    request.getSessionId(),
+                    request.getPlayerId(),
+                    request.getDirection()
+            );
 
-            GameSession session = gameSessionService.getSession(request.getSessionId());
-
-            Player player = session.getPlayers().stream()
-                    .filter(p -> p.getId().toString().equals(request.getPlayerId())).findFirst()
-                    .orElseThrow();
-
-            PlayerMovedEventDTO event = PlayerMovedEventDTO.builder()
-                    .playerId(request.getPlayerId()).newX(player.getPosX()).newY(player.getPosY())
-                    .direction(request.getDirection())
-                    .sequenceNumber(
-                            sequenceNumberManager.getNextSequenceNumber(request.getSessionId()))
-                    .timestamp(System.currentTimeMillis()).build();
-
-            broadcastPlayerMoved(request.getSessionId(), event);
-
+            // ✅ Enviar estado completo para sincronización
             long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
+            logger.info("✅ Player {} moved {} in session {} (took {}ms)",
+                    request.getPlayerId(), request.getDirection(), request.getSessionId(), elapsedMs);
 
-            logger.info("✅ Player {} moved {} in session {} (took {}ms)", request.getPlayerId(),
-                    request.getDirection(), request.getSessionId(), elapsedMs);
         } catch (InvalidMoveException e) {
             logger.warn("⚠️ Invalid move request from player {} in session {}: {}",
                     request.getPlayerId(), request.getSessionId(), e.getMessage());
-            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(), "INVALID_MOVE",
-                    e.getMessage());
+            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
+                    "INVALID_MOVE", e.getMessage());
         } catch (IllegalStateException e) {
-            logger.warn("⚠️ Move failed for player {} in session {}: {}", request.getPlayerId(),
-                    request.getSessionId(), e.getMessage());
-            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(), "MOVE_FAILED",
-                    e.getMessage());
+            logger.warn("⚠️ Move failed for player {} in session {}: {}",
+                    request.getPlayerId(), request.getSessionId(), e.getMessage());
+            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
+                    "MOVE_FAILED", e.getMessage());
         } catch (Exception e) {
             logger.error("❌ Unexpected error processing move for player {} in session {}: {}",
+                    request.getPlayerId(), request.getSessionId(), e.getMessage(), e);
+            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
                     "SERVER_ERROR", "Internal server error");
         }
     }
 
     /**
-     * Handles bomb placement requests via WebSocket. Validates placement and creates bomb through
-     * GameFacadeService.
+     * Handles bomb placement requests via WebSocket. Validates placement and
+     * creates bomb through GameFacadeService.
      *
      * Endpoint: /app/game/bomb
      *
@@ -117,35 +113,21 @@ public class WebSocketController {
     @MessageMapping("/game/bomb")
     public void handlePlaceBomb(@Valid @Payload PlaceBombRequestDTO request) {
         long startTime = System.nanoTime();
+
         try {
-            logger.debug(
-                    "💣 Received bomb placement request from player {} in session {} at ({}, {})",
-                    request.getPlayerId(), request.getSessionId(), request.getPosition().x,
-                    request.getPosition().y);
+            logger.debug("💣 Received bomb placement request from player {} in session {} at ({}, {})",
+                    request.getPlayerId(), request.getSessionId(),
+                    request.getPosition().x, request.getPosition().y);
 
-            gameFacadeService.handlePlaceBomb(request.getSessionId(), request.getPlayerId(),
-                    request.getPosition());
-
-            GameSession session = gameSessionService.getSession(request.getSessionId());
-
-            Bomb bomb = session.getActiveBombs().stream()
-                    .filter(b -> b.getPosX() == request.getPosition().x
-                            && b.getPosY() == request.getPosition().y)
-                    .reduce((first, second) -> second) // Get the last one (most recent)
-                    .orElseThrow();
-
-            BombPlacedEventDTO event = BombPlacedEventDTO.builder().bombId(bomb.getId().toString())
-                    .playerId(request.getPlayerId()).x(bomb.getPosX()).y(bomb.getPosY())
-                    .range(bomb.getRange()).timeToExplode(bomb.getTimeUntilExplosion())
-                    .sequenceNumber(
-                            sequenceNumberManager.getNextSequenceNumber(request.getSessionId()))
-                    .timestamp(System.currentTimeMillis()).build();
-
-            broadcastBombPlaced(request.getSessionId(), event);
+            // Procesar colocación de bomba
+            gameFacadeService.handlePlaceBomb(
+                    request.getSessionId(),
+                    request.getPlayerId(),
+                    request.getPosition()
+            );
 
             long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
             logger.info("✅ Player {} placed bomb at ({}, {}) in session {} (took {}ms)",
-
                     request.getPlayerId(), request.getPosition().x, request.getPosition().y,
                     request.getSessionId(), elapsedMs);
 
@@ -160,19 +142,21 @@ public class WebSocketController {
             sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
                     "BOMB_PLACEMENT_FAILED", e.getMessage());
         } catch (Exception e) {
-            logger.error(
-                    "❌ Unexpected error processing bomb placement for player {} in session {}: {}",
+            logger.error("❌ Unexpected error processing bomb placement for player {} in session {}: {}",
+                    request.getPlayerId(), request.getSessionId(), e.getMessage(), e);
+            sendErrorToPlayer(request.getSessionId(), request.getPlayerId(),
                     "SERVER_ERROR", "Internal server error");
         }
     }
 
     /**
-     * Handles power-up collection requests via WebSocket. Validates collection and applies effect
-     * through GameFacadeService.
+     * Handles power-up collection requests via WebSocket. Validates collection
+     * and applies effect through GameFacadeService.
      *
      * Endpoint: /app/game/powerup
      *
-     * @param request PowerUpCollectRequestDTO with session, player, and power-up ID
+     * @param request PowerUpCollectRequestDTO with session, player, and
+     * power-up ID
      */
     @MessageMapping("/game/powerup")
     public void handlePowerUpCollect(@Valid @Payload PowerUpCollectRequestDTO request) {
@@ -207,8 +191,51 @@ public class WebSocketController {
     }
 
     /**
-     * Handles player connection to a game session. Called when player subscribes to session topic.
-     * Sends initial game state to newly connected player.
+     * Call this method when a bomb explodes This should be called from your
+     * BombService, scheduled task, or wherever you handle bomb explosions
+     */
+    public void onBombExploded(String sessionId, BombExplodedDTO explodedEvent) {
+        try {
+            // Send explosion event (for visual/sound effects)
+            broadcastBombExploded(sessionId, explodedEvent);
+
+            // ✅ Send full state for immediate synchronization of all changes
+            // (destroyed blocks, killed players, removed bomb, etc.)
+            GameStateDTO updatedState = gameFacadeService.getGameState(sessionId);
+            broadcastGameState(sessionId, updatedState);
+
+            logger.info("Bomb {} exploded in session {}",
+                    explodedEvent.getBombId(), sessionId);
+
+        } catch (Exception e) {
+            logger.error("Error broadcasting bomb explosion: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Call this method when a player is killed
+     */
+    public void onPlayerKilled(String sessionId, PlayerKilledDTO killedEvent) {
+        try {
+            // Send player killed event
+            broadcastPlayerKilled(sessionId, killedEvent);
+
+            // ✅ Send full state for immediate synchronization
+            GameStateDTO updatedState = gameFacadeService.getGameState(sessionId);
+            broadcastGameState(sessionId, updatedState);
+
+            logger.info("Player {} killed in session {}",
+                    killedEvent.getVictimId(), sessionId);
+
+        } catch (Exception e) {
+            logger.error("Error broadcasting player death: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Handles player connection to a game session. Called when player
+     * subscribes to session topic. Sends initial game state to newly connected
+     * player.
      *
      * Endpoint: /topic/game/{sessionId}/state (subscription)
      *
@@ -233,8 +260,9 @@ public class WebSocketController {
     }
 
     /**
-     * Handles player disconnection from a game session. Called when player unsubscribes or
-     * connection is lost. Removes player from session and notifies other players.
+     * Handles player disconnection from a game session. Called when player
+     * unsubscribes or connection is lost. Removes player from session and
+     * notifies other players.
      *
      * @param sessionId session identifier
      * @param playerId player identifier
@@ -260,8 +288,8 @@ public class WebSocketController {
     }
 
     /**
-     * Broadcasts game start event to all clients in a session. Signals all players to transition
-     * from lobby to game.
+     * Broadcasts game start event to all clients in a session. Signals all
+     * players to transition from lobby to game.
      *
      * @param sessionId session identifier
      * @param state initial game state
@@ -270,8 +298,8 @@ public class WebSocketController {
         try {
             String destination = "/topic/game/" + sessionId + "/start";
 
-            GameStartNotification notification =
-                    GameStartNotification.builder().sessionId(sessionId).initialState(state)
+            GameStartNotification notification
+                    = GameStartNotification.builder().sessionId(sessionId).initialState(state)
                             .timestamp(System.currentTimeMillis()).build();
 
             messagingTemplate.convertAndSend(destination, notification);
@@ -285,8 +313,8 @@ public class WebSocketController {
     }
 
     /**
-     * Broadcasts game state to all clients in a session. Used by event listeners for state
-     * synchronization.
+     * Broadcasts game state to all clients in a session. Used by event
+     * listeners for state synchronization.
      *
      * @param sessionId session identifier
      * @param state GameStateUpdateDTO to broadcast
@@ -302,8 +330,8 @@ public class WebSocketController {
     }
 
     /**
-     * Broadcasts player killed event to all clients in a session. Used for kill feed and scoreboard
-     * updates.
+     * Broadcasts player killed event to all clients in a session. Used for kill
+     * feed and scoreboard updates.
      *
      * @param sessionId session identifier
      * @param event PlayerKilledDTO with kill details
@@ -323,8 +351,8 @@ public class WebSocketController {
     }
 
     /**
-     * Broadcasts bomb exploded event to all clients in a session. Used for explosion animations and
-     * sound effects.
+     * Broadcasts bomb exploded event to all clients in a session. Used for
+     * explosion animations and sound effects.
      *
      * @param sessionId session identifier
      * @param event BombExplodedDTO with explosion details
@@ -349,7 +377,8 @@ public class WebSocketController {
      *
      * Broadcasts player movement event to all clients in a session.
      *
-     * Lightweight event containing only position delta (95% less data than full state).
+     * Lightweight event containing only position delta (95% less data than full
+     * state).
      *
      *
      *
@@ -400,7 +429,8 @@ public class WebSocketController {
      *
      * Broadcasts heartbeat event to keep WebSocket connection alive.
      *
-     * Sent every 500ms to detect connection loss and allow clients to request resync.
+     * Sent every 500ms to detect connection loss and allow clients to request
+     * resync.
      *
      *
      *
@@ -447,8 +477,8 @@ public class WebSocketController {
     }
 
     /**
-     * Broadcasts player disconnection notification. Notifies remaining players that someone left
-     * the session.
+     * Broadcasts player disconnection notification. Notifies remaining players
+     * that someone left the session.
      *
      * @param sessionId session identifier
      * @param playerId disconnected player identifier
@@ -472,7 +502,8 @@ public class WebSocketController {
     }
 
     /**
-     * Sends error message to a specific player. Used for validation errors and failed actions.
+     * Sends error message to a specific player. Used for validation errors and
+     * failed actions.
      *
      * @param sessionId session identifier
      * @param playerId player identifier
@@ -556,5 +587,10 @@ public class WebSocketController {
                 logger.error("Error sending initial state", e);
             }
         }
+    }
+
+    public void broadcastToSession(String sessionId, String string, PowerUpCollectedEvent event) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'broadcastToSession'");
     }
 }

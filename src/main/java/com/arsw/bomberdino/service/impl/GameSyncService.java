@@ -1,18 +1,19 @@
 package com.arsw.bomberdino.service.impl;
 
-import com.arsw.bomberdino.controller.websocket.WebSocketController;
-import com.arsw.bomberdino.model.dto.response.GameStateDTO;
-import com.arsw.bomberdino.model.dto.response.HeartbeatEventDTO;
-import com.arsw.bomberdino.model.entity.GameSession;
-import com.arsw.bomberdino.model.entity.Player;
-import com.arsw.bomberdino.model.enums.GameStatus;
-import com.arsw.bomberdino.model.enums.PlayerStatus;
-import com.arsw.bomberdino.util.SequenceNumberManager;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import com.arsw.bomberdino.controller.websocket.WebSocketController;
+import com.arsw.bomberdino.model.dto.response.GameStateDTO;
+import com.arsw.bomberdino.model.dto.response.HeartbeatEventDTO;
+import com.arsw.bomberdino.model.entity.GameSession;
+import com.arsw.bomberdino.model.enums.GameStatus;
+import com.arsw.bomberdino.model.enums.PlayerStatus;
+import com.arsw.bomberdino.util.SequenceNumberManager;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +54,11 @@ public class GameSyncService {
             var activeSessions = gameSessionService.getSessionsByStatus(GameStatus.IN_PROGRESS);
 
             for (GameSession session : activeSessions) {
+
+                if (session.getStatus() == GameStatus.FINISHED) {
+                    continue;
+                }
+
                 String sessionId = session.getSessionId().toString();
 
                 int alivePlayersCount = (int) session.getPlayers().stream()
@@ -90,6 +96,11 @@ public class GameSyncService {
             var activeSessions = gameSessionService.getSessionsByStatus(GameStatus.IN_PROGRESS);
 
             for (GameSession session : activeSessions) {
+
+                if (session.getStatus() == GameStatus.FINISHED) {
+                    continue;
+                }
+
                 String sessionId = session.getSessionId().toString();
                 GameStateDTO fullState = session.getCurrentState();
 
