@@ -6,6 +6,19 @@ spring:
     restart:
       enabled: true
 
+# Redis Configuration
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  database: 0
+  timeout: 5000
+  ssl: false
+  pool:
+    max-active: 20
+    max-idle: 10
+    min-idle: 5
+
 # Development Logging
 logging:
   level:
@@ -13,3 +26,5 @@ logging:
     com.arsw.bomberdino: DEBUG
     org.springframework.web.socket: TRACE
     org.springframework.messaging: TRACE
+    org.redisson: DEBUG
+    org.springframework.data.redis: DEBUG
