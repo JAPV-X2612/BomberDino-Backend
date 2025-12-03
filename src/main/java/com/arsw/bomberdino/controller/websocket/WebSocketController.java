@@ -20,14 +20,8 @@ import com.arsw.bomberdino.model.dto.response.PlayerKilledDTO;
 import com.arsw.bomberdino.model.entity.GameSession;
 import com.arsw.bomberdino.service.impl.GameFacadeService;
 import com.arsw.bomberdino.service.impl.GameSessionService;
-import com.arsw.bomberdino.service.impl.GameEventPublisher;
-import com.arsw.bomberdino.service.impl.GameEventSubscriber;
 
 import jakarta.validation.Valid;
-
-import java.security.Principal;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * WebSocket controller for real-time game interactions. Handles player actions
@@ -47,19 +41,12 @@ public class WebSocketController {
     private final GameSessionService gameSessionService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    private final GameEventPublisher eventPublisher;
-    private final GameEventSubscriber eventSubscriber;
-
     public WebSocketController(GameFacadeService gameFacadeService,
-                               GameSessionService gameSessionService,
-                               SimpMessagingTemplate messagingTemplate,
-                               GameEventPublisher eventPublisher,
-                               GameEventSubscriber eventSubscriber) {
+            GameSessionService gameSessionService,
+            SimpMessagingTemplate messagingTemplate) {
         this.gameFacadeService = gameFacadeService;
         this.gameSessionService = gameSessionService;
         this.messagingTemplate = messagingTemplate;
-        this.eventPublisher = eventPublisher;
-        this.eventSubscriber = eventSubscriber;
     }
 
     /**
@@ -190,24 +177,6 @@ public class WebSocketController {
     }
 
     /**
-     * Subscribes client to game session events via Redis PubSub.
-     *
-     * @param sessionId unique session identifier
-     * @param principal authenticated user principal
-     */
-    @MessageMapping("/game/subscribe")
-    public void subscribeToGame(@Payload String sessionId, Principal principal) {
-        try {
-            UUID uuid = UUID.fromString(sessionId);
-            eventSubscriber.subscribeToSession(uuid);
-            String userId = principal != null ? principal.getName() : "anonymous";
-            logger.info("User {} subscribed to session: {}", userId, sessionId);
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid session ID format: {}", sessionId, e);
-        }
-    }
-
-    /**
      * Handles player connection to a game session. Called when player
      * subscribes to session topic. Sends initial game state to newly connected
      * player.
@@ -282,7 +251,6 @@ public class WebSocketController {
                     .build();
 
             messagingTemplate.convertAndSend(destination, notification);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "GAME_START", "status", "started"));
 
             logger.info("Broadcasted game start to session {}", sessionId);
 
@@ -303,7 +271,6 @@ public class WebSocketController {
         try {
             logger.info("🔥 Broadcasting state - Players: {}", state.getPlayers().size());
             messagingTemplate.convertAndSend("/topic/game/" + sessionId + "/state", state);
-            eventPublisher.publishGameState(UUID.fromString(sessionId), state);
             logger.info("✅ Broadcast successful");
         } catch (Exception e) {
             logger.error("❌ Broadcast failed: {}", e.getMessage(), e);
@@ -321,7 +288,6 @@ public class WebSocketController {
         try {
             String destination = "/topic/game/" + sessionId + "/kill";
             messagingTemplate.convertAndSend(destination, event);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), event);
 
             logger.debug("Broadcasted player killed to session {} (killer: {}, victim: {})",
                     sessionId, event.getKillerId(), event.getVictimId());
@@ -343,7 +309,6 @@ public class WebSocketController {
         try {
             String destination = "/topic/game/" + sessionId + "/explosion";
             messagingTemplate.convertAndSend(destination, event);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), event);
 
             logger.debug("Broadcasted bomb explosion to session {} (bomb: {}, tiles: {}, players: {})",
                     sessionId, event.getBombId(),
@@ -373,7 +338,6 @@ public class WebSocketController {
                     .build();
 
             messagingTemplate.convertAndSend(destination, notification);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "PLAYER_DISCONNECT", "playerId", playerId));
 
             logger.debug("Broadcasted player disconnect notification for {} to session {}",
                     playerId, sessionId);
