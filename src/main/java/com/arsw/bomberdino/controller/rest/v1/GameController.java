@@ -109,9 +109,7 @@ public class GameController {
                 request.getRoomId());
 
         try {
-            String roomCode = request.getRoomId().toUpperCase();
-            String sessionId = gameSessionService.getSessionIdFromRoomCode(roomCode);
-
+            String sessionId = request.getRoomId();
             GameSession session = gameSessionService.getSession(sessionId);
 
             if (session.getStatus() != GameStatus.WAITING) {
