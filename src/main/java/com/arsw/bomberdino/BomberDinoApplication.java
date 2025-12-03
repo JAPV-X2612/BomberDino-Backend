@@ -13,7 +13,6 @@ public class BomberDinoApplication {
 
     /**
      * Main method to start the Spring Boot application.
-     *
      * @param args Command line arguments
      */
     public static void main(String[] args) {
