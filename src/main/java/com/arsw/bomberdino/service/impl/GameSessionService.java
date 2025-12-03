@@ -62,29 +62,28 @@ public class GameSessionService {
         validateRoomId(roomCode);
         validateMaxPlayers(maxPlayers);
 
-        UUID sessionId = UUID.randomUUID();
-        String sessionIdStr = sessionId.toString();
+        // UUID sessionId = UUID.randomUUID();
+        // String sessionIdStr = sessionId.toString();
 
-        return lockService.executeWithLock(sessionId, () -> {
-            if (roomCodeToSessionId.containsKey(roomCode)) {
-                throw new IllegalStateException("Room code already exists: " + roomCode);
-            }
+        // return lockService.executeWithLock(sessionId, () -> {
+        if (roomCodeToSessionId.containsKey(roomCode)) {
+            throw new IllegalStateException("Room code already exists: " + roomCode);
+        }
 
-            GameMap map = gameMapService.createMap(sessionIdStr, 13, 13);
-            tileService.initializeTiles(sessionIdStr, map);
+        GameMap map = gameMapService.createMap(roomCode, 13, 13);
+        tileService.initializeTiles(roomCode, map);
 
-            GameSession session = GameSession.builder().sessionId(sessionId)
-                    .status(GameStatus.WAITING).map(map).players(new ArrayList<>())
-                    .activeBombs(new ArrayList<>()).activeExplosions(new ArrayList<>())
-                    .availablePowerUps(new ArrayList<>()).roundDuration(DEFAULT_ROUND_DURATION)
-                    .build();
+        GameSession session = GameSession.builder().sessionId(UUID.randomUUID())
+                .status(GameStatus.WAITING).map(map).players(new ArrayList<>())
+                .activeBombs(new ArrayList<>()).activeExplosions(new ArrayList<>())
+                .availablePowerUps(new ArrayList<>()).roundDuration(DEFAULT_ROUND_DURATION).build();
 
-            sessions.put(sessionIdStr, session);
-            roomCodeToSessionId.put(roomCode, sessionIdStr);
-            cacheService.saveGameState(session.getSessionId(), session);
+        sessions.put(roomCode, session);
+        // roomCodeToSessionId.put(roomCode, sessionIdStr);
+        // cacheService.saveGameState(session.getSessionId(), session);
 
-            return session;
-        });
+        return session;
+        // });
     }
 
     /**
@@ -199,14 +198,17 @@ public class GameSessionService {
             UUID uuid = UUID.fromString(sessionId);
             session = cacheService.getGameState(uuid);
 
-            if (session != null) {
-                sessions.put(sessionId, session);
-                logger.debug("Loaded session from Redis cache: {}", sessionId);
-            } else {
+            if (session == null) {
                 throw new IllegalStateException("Session not found: " + sessionId);
             }
-        }
 
+            // if (session != null) {
+            // sessions.put(sessionId, session);
+            // logger.debug("Loaded session from Redis cache: {}", sessionId);
+            // } else {
+            // throw new IllegalStateException("Session not found: " + sessionId);
+            // }
+        }
         return session;
     }
 
@@ -298,7 +300,7 @@ public class GameSessionService {
             }
 
             session.update(0.016f);
-            cacheService.saveGameState(session.getSessionId(), session);
+            // cacheService.saveGameState(session.getSessionId(), session);
 
             return null;
         });
