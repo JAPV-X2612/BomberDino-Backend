@@ -23,6 +23,11 @@ spring:
         queue-capacity: 100
       thread-name-prefix: async-task-
 
+    scheduling:
+    pool:
+      size: 2
+    thread-name-prefix: scheduler-
+
   # Microsoft Entra ID Configuration
   security:
     oauth2:
