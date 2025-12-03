@@ -1,5 +1,7 @@
 package com.arsw.bomberdino.config;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,19 +10,18 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import java.util.List;
 
 /**
- * Security configuration for Microsoft Entra ID JWT validation. Configures OAuth2 Resource Server
- * with JWT token validation.
+ * Security configuration for Microsoft Entra ID JWT validation. Configures
+ * OAuth2 Resource Server with JWT token validation.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
  * @version 1.0
@@ -50,20 +51,32 @@ public class SecurityConfig {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers("/actuator/**").permitAll().requestMatchers("/ws/**")
-                        .permitAll().requestMatchers("/api/v1/auth/**").permitAll()
-                        // Protected endpoints
-                        .requestMatchers("/api/v1/game/**").authenticated().anyRequest()
-                        .permitAll())
+                // Public endpoints
+                .requestMatchers("/actuator/**").permitAll().requestMatchers("/ws/**")
+                .permitAll().requestMatchers("/api/v1/auth/**").permitAll()
+                // Protected endpoints
+                .requestMatchers("/api/v1/game/**").authenticated().anyRequest()
+                .permitAll())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder())));
 
         return http.build();
     }
 
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable()) // Desactivar protección CSRF
+                .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/game/**").permitAll() // ← Permite acceso sin login
+                .requestMatchers("/ws/**").permitAll() // ← WebSocket sin login
+                .anyRequest().authenticated() // El resto sigue bloqueado
+                );
+        return http.build();
+    }
+
     /**
-     * Configures JWT decoder with Microsoft Entra ID validation. Validates issuer, audience, and
-     * token signature.
+     * Configures JWT decoder with Microsoft Entra ID validation. Validates
+     * issuer, audience, and token signature.
      *
      * @return configured JwtDecoder
      */
