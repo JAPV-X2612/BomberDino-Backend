@@ -26,5 +26,4 @@ logging:
     com.arsw.bomberdino: DEBUG
     org.springframework.web.socket: TRACE
     org.springframework.messaging: TRACE
-    org.redisson: DEBUG
     org.springframework.data.redis: DEBUG
