@@ -40,8 +40,7 @@ public class Tile extends GameEntity implements Destructible {
     private static final double POWERUP_DROP_RATE = 0.3;
 
     /**
-     * Destroys the tile if destructible. Converts destructible walls to empty
-     * tiles.
+     * Destroys the tile if destructible. Converts destructible walls to empty tiles.
      *
      * @throws IllegalStateException if tile is not destructible
      */

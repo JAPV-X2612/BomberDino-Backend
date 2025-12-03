@@ -58,19 +58,6 @@ websocket:
   endpoint: /ws
   allowed-origins: '*'
 
-# Redis Configuration
-redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
-  database: 0
-  timeout: 5000
-  ssl: false
-  pool:
-    max-active: 20
-    max-idle: 10
-    min-idle: 5
-
 # Actuator Configuration
 management:
   endpoints:
