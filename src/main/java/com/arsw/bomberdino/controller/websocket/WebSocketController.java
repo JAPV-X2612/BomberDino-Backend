@@ -282,7 +282,7 @@ public class WebSocketController {
                     .build();
 
             messagingTemplate.convertAndSend(destination, notification);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "GAME_START", "status", "started"));
+            // eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "GAME_START", "status", "started"));
 
             logger.info("Broadcasted game start to session {}", sessionId);
 
@@ -303,7 +303,7 @@ public class WebSocketController {
         try {
             logger.info("🔥 Broadcasting state - Players: {}", state.getPlayers().size());
             messagingTemplate.convertAndSend("/topic/game/" + sessionId + "/state", state);
-            eventPublisher.publishGameState(UUID.fromString(sessionId), state);
+            // eventPublisher.publishGameState(UUID.fromString(sessionId), state);
             logger.info("✅ Broadcast successful");
         } catch (Exception e) {
             logger.error("❌ Broadcast failed: {}", e.getMessage(), e);
@@ -321,7 +321,7 @@ public class WebSocketController {
         try {
             String destination = "/topic/game/" + sessionId + "/kill";
             messagingTemplate.convertAndSend(destination, event);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), event);
+            // eventPublisher.publishEvent(UUID.fromString(sessionId), event);
 
             logger.debug("Broadcasted player killed to session {} (killer: {}, victim: {})",
                     sessionId, event.getKillerId(), event.getVictimId());
@@ -343,7 +343,7 @@ public class WebSocketController {
         try {
             String destination = "/topic/game/" + sessionId + "/explosion";
             messagingTemplate.convertAndSend(destination, event);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), event);
+            // eventPublisher.publishEvent(UUID.fromString(sessionId), event);
 
             logger.debug("Broadcasted bomb explosion to session {} (bomb: {}, tiles: {}, players: {})",
                     sessionId, event.getBombId(),
@@ -373,7 +373,7 @@ public class WebSocketController {
                     .build();
 
             messagingTemplate.convertAndSend(destination, notification);
-            eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "PLAYER_DISCONNECT", "playerId", playerId));
+            // eventPublisher.publishEvent(UUID.fromString(sessionId), Map.of("type", "PLAYER_DISCONNECT", "playerId", playerId));
 
             logger.debug("Broadcasted player disconnect notification for {} to session {}",
                     playerId, sessionId);
