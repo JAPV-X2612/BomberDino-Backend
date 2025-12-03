@@ -34,6 +34,7 @@ public class GameSessionService {
 
     private final TileService tileService;
     private final GameMapService gameMapService;
+    private final RedisGameStateLogger redisLogger;
 
     /**
      * In-memory storage for active game sessions. Key: sessionId, Value:
@@ -70,6 +71,7 @@ public class GameSessionService {
                 .availablePowerUps(new ArrayList<>()).roundDuration(DEFAULT_ROUND_DURATION).build();
 
         sessions.put(roomId, session);
+        redisLogger.logGameState(roomId, session, "SESSION_CREATED");
 
         return session;
     }
@@ -97,6 +99,7 @@ public class GameSessionService {
         }
 
         session.start();
+        redisLogger.logGameState(sessionId, session, "SESSION_STARTED");
     }
 
     /**
@@ -113,7 +116,7 @@ public class GameSessionService {
 
         session.setStatus(GameStatus.FINISHED);
         session.setEndTime(LocalDateTime.now());
-
+        redisLogger.logGameState(sessionId, session, "SESSION_FINISHED");
     }
 
     /**
