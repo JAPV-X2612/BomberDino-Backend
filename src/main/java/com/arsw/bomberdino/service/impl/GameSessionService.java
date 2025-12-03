@@ -195,13 +195,12 @@ public class GameSessionService {
         GameSession session = sessions.get(sessionId);
 
         if (session == null) {
-            throw new IllegalStateException("Session not found: " + sessionId);
-            // UUID uuid = UUID.fromString(sessionId);
-            // session = cacheService.getGameState(uuid);
+            UUID uuid = UUID.fromString(sessionId);
+            session = cacheService.getGameState(uuid);
 
-            // if (session == null) {
-            // throw new IllegalStateException("Session not found: " + sessionId);
-            // }
+            if (session == null) {
+                throw new IllegalStateException("Session not found: " + sessionId);
+            }
 
             // if (session != null) {
             // sessions.put(sessionId, session);
@@ -293,18 +292,18 @@ public class GameSessionService {
     public void updateGameState(String sessionId) {
         validateSessionId(sessionId);
 
-        // lockService.executeWithLock(UUID.fromString(sessionId), () -> {
-        GameSession session = getSession(sessionId);
+        lockService.executeWithLock(UUID.fromString(sessionId), () -> {
+            GameSession session = getSession(sessionId);
 
-        if (session.getStatus() != GameStatus.IN_PROGRESS) {
-            return;
-        }
+            if (session.getStatus() != GameStatus.IN_PROGRESS) {
+                return null;
+            }
 
-        session.update(0.016f);
-        // cacheService.saveGameState(session.getSessionId(), session);
+            session.update(0.016f);
+            // cacheService.saveGameState(session.getSessionId(), session);
 
-        // return null;
-        // });
+            return null;
+        });
     }
 
     /**
