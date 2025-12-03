@@ -45,9 +45,7 @@ public class GameSessionService {
     private static final int DEFAULT_ROUND_DURATION = 180;
 
     /**
-     * Creates a new game session from a room. Initializes game map and tile service
-     * for the
-     * session.
+     * Creates a new game session from a room. Initializes game map and tile service for the session.
      *
      * @param roomId     unique identifier of the room creating this session
      * @param maxPlayers maximum number of players allowed
@@ -77,8 +75,7 @@ public class GameSessionService {
     }
 
     /**
-     * Starts a game session. Transitions status to IN_PROGRESS and initializes
-     * start time.
+     * Starts a game session. Transitions status to IN_PROGRESS and initializes start time.
      *
      * @param sessionId unique identifier of the session
      * @throws ValidationException   if sessionId is null or blank
@@ -120,8 +117,7 @@ public class GameSessionService {
     }
 
     /**
-     * Pauses a game session. Transitions status to PAUSED. Reserved for future
-     * implementation.
+     * Pauses a game session. Transitions status to PAUSED. Reserved for future implementation.
      *
      * @param sessionId unique identifier of the session
      * @throws ValidationException   if sessionId is null or blank
@@ -140,9 +136,7 @@ public class GameSessionService {
     }
 
     /**
-     * Resumes a paused game session. Transitions status back to IN_PROGRESS.
-     * Reserved for future
-     * implementation.
+     * Resumes a paused game session. Transitions status back to IN_PROGRESS. Reserved for future implementation.
      *
      * @param sessionId unique identifier of the session
      * @throws IllegalArgumentException if sessionId is null or blank
@@ -181,8 +175,7 @@ public class GameSessionService {
     }
 
     /**
-     * Adds a player to a game session. Assigns spawn point and initializes player
-     * state.
+     * Adds a player to a game session. Assigns spawn point and initializes player state.
      *
      * @param sessionId  unique identifier of the session
      * @param playerId   unique identifier of the player
@@ -226,8 +219,7 @@ public class GameSessionService {
     }
 
     /**
-     * Removes a player from a game session. Frees occupied tile and removes player
-     * from session.
+     * Removes a player from a game session. Frees occupied tile and removes player from session.
      *
      * @param sessionId unique identifier of the session
      * @param playerId  unique identifier of the player to remove
@@ -252,9 +244,8 @@ public class GameSessionService {
     }
 
     /**
-     * Updates the game state for a session. Processes bombs, explosions, power-ups,
-     * and win
-     * conditions. Called by game loop at fixed rate (e.g., 60 FPS).
+     * Updates the game state for a session. Processes bombs, explosions, power-ups, and win conditions.
+     * Called by game loop at fixed rate (e.g., 60 FPS).
      *
      * @param sessionId unique identifier of the session
      * @throws ValidationException   if sessionId is null or blank
@@ -274,8 +265,7 @@ public class GameSessionService {
     }
 
     /**
-     * Gets all sessions matching a specific status. Used for lobby listing and
-     * admin dashboards.
+     * Gets all sessions matching a specific status. Used for lobby listing and admin dashboards.
      *
      * @param status GameStatus to filter by
      * @return list of GameSession instances with matching status
@@ -290,8 +280,7 @@ public class GameSessionService {
     }
 
     /**
-     * Removes a session and cleans up associated resources. Called when session
-     * ends or expires.
+     * Removes a session and cleans up associated resources. Called when session ends or expires.
      *
      * @param sessionId unique identifier of the session
      * @throws ValidationException if sessionId is null or blank
@@ -356,9 +345,7 @@ public class GameSessionService {
     }
 
     /**
-     * Gets list of player IDs affected by an explosion. Checks if any players
-     * occupy tiles in the
-     * explosion range.
+     * Gets list of player IDs affected by an explosion. Checks if any players occupy tiles in the explosion range.
      *
      * @param sessionId      unique identifier of the session
      * @param explosionTiles list of tiles affected by explosion
