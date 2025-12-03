@@ -24,3 +24,10 @@ websocket:
   message-size-limit: 65536
   send-buffer-size: 524288
   send-time-limit: 20000
+
+redis:
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD}
+  game-state:
+    ttl-seconds: 10800

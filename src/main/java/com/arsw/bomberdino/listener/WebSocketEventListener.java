@@ -56,14 +56,8 @@ public class WebSocketEventListener {
     }
 
     /**
-     * ==================== LIGHTWEIGHT EVENTS ==================== These send
-     * ONLY what changed (delta updates)
-     */
-    /**
      * Handles PlayerMovedEvent by broadcasting lightweight movement delta.
-     *
-     * Payload size: ~100 bytes (vs ~5KB for full state) Frequency: High (every
-     * player input)
+     * Payload size: ~100 bytes (vs ~5KB for full state) Frequency: High (every player input)
      *
      * @param event PlayerMovedEvent containing player ID and new position
      */
@@ -105,9 +99,7 @@ public class WebSocketEventListener {
 
     /**
      * Handles BombPlacedEvent by broadcasting lightweight bomb creation delta.
-     *
-     * Payload size: ~150 bytes (vs ~5KB for full state) Frequency: Medium (when
-     * players place bombs)
+     * Payload size: ~150 bytes (vs ~5KB for full state) Frequency: Medium (when players place bombs)
      *
      * @param event BombPlacedEvent containing bomb details
      */
@@ -150,19 +142,7 @@ public class WebSocketEventListener {
     }
 
     /**
-     * ==================== FULL STATE EVENTS ==================== These send
-     * complete game state because many things change at once
-     */
-    /**
      * Handles BombExplodedEvent with FULL STATE synchronization.
-     *
-     * Why full state? Because explosions affect: - Destroyed blocks (tiles
-     * change) - Damaged players (lives, position, status change) - Spawned
-     * power-ups (new entities appear) - Removed bomb (entity disappears)
-     *
-     * Sending individual deltas would require 10+ messages. Full state is
-     * actually MORE efficient here.
-     *
      * @param event BombExplodedEvent containing explosion details
      */
     @EventListener
@@ -171,7 +151,6 @@ public class WebSocketEventListener {
         try {
             String sessionId = event.getSessionId();
 
-            // Send explosion event for visual effects (fireball animation, sound)
             BombExplodedDTO explosionDto = BombExplodedDTO.builder()
                     .sessionId(sessionId)
                     .bombId(event.getBombId())
@@ -187,7 +166,6 @@ public class WebSocketEventListener {
 
             webSocketController.broadcastBombExploded(sessionId, explosionDto);
 
-            // Send FULL STATE for synchronization (many entities changed)
             GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
             webSocketController.broadcastGameState(sessionId, fullState);
 
@@ -201,11 +179,6 @@ public class WebSocketEventListener {
     /**
      * Handles PlayerKilledEvent with FULL STATE synchronization.
      *
-     * Why full state? Because deaths affect: - Player lives (decremented) -
-     * Player position (respawn point) - Player status (ALIVE/DEAD/SPECTATING) -
-     * Killer's score (kills incremented) - Game status (might trigger end
-     * condition)
-     *
      * @param event PlayerKilledEvent containing killer and victim IDs
      */
     @EventListener
@@ -214,7 +187,6 @@ public class WebSocketEventListener {
         try {
             String sessionId = event.getSessionId();
 
-            // Send kill event for UI notifications (kill feed)
             PlayerKilledDTO dto = PlayerKilledDTO.builder()
                     .sessionId(sessionId)
                     .killerId(event.getKillerId())
@@ -224,7 +196,6 @@ public class WebSocketEventListener {
 
             webSocketController.broadcastPlayerKilled(sessionId, dto);
 
-            // Send FULL STATE for synchronization (player states changed)
             GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
             webSocketController.broadcastGameState(sessionId, fullState);
 
@@ -237,7 +208,6 @@ public class WebSocketEventListener {
 
     /**
      * Handles PowerUpCollectedEvent with FULL STATE synchronization.
-     *
      * @param event PowerUpCollectedEvent containing player and power-up data
      */
     @EventListener
@@ -246,10 +216,8 @@ public class WebSocketEventListener {
         try {
             String sessionId = event.getSessionId();
 
-            // Send power-up event for visual feedback
             webSocketController.broadcastToSession(sessionId, "/powerup", event);
 
-            // Send FULL STATE (power-up removed, player stats changed)
             GameStateDTO fullState = gameSessionService.getSession(sessionId).getCurrentState();
             webSocketController.broadcastGameState(sessionId, fullState);
 
@@ -259,24 +227,4 @@ public class WebSocketEventListener {
             logger.error("❌ Error broadcasting power-up collection: {}", e.getMessage(), e);
         }
     }
-
-    /**
-     * ==================== IGNORED EVENTS ==================== These are now
-     * handled by periodic sync instead of per-action
-     */
-    /**
-     * GameStateChangedEvent is NO LONGER broadcasted immediately.
-     *
-     * Why? Because: 1. Specific events (PlayerMovedEvent, BombPlacedEvent)
-     * handle deltas 2. Critical events (BombExplodedEvent, PlayerKilledEvent)
-     * send full state 3. PeriodicSyncScheduler sends full state every 5s as
-     * checkpoint
-     *
-     * Commenting this out ELIMINATES 90% of redundant broadcasts.
-     */
-    // @EventListener
-    // @Async
-    // public void onGameStateChanged(GameStateChangedEvent event) {
-    //     // DISABLED - Replaced by hybrid delta/sync strategy
-    // }
 }
