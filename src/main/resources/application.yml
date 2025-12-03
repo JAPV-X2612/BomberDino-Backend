@@ -41,6 +41,16 @@ azure:
   tenant-id: ${AZURE_TENANT_ID:fda6941b-6261-4982-9460-24a10346780b}
   client-id: ${AZURE_CLIENT_ID:990dc266-798b-4a1a-b8c4-0fe59148a1ae}
 
+# Redis Configuration
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+  timeout: 2000
+  game-state:
+    ttl-seconds: 10800 # 3 hours
+    key-prefix: "game:session"
+
 # Game Configuration
 game:
   bomb:
