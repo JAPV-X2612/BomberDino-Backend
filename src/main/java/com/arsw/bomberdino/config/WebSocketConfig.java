@@ -13,8 +13,8 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * WebSocket configuration for real-time game communication. Configures STOMP messaging protocol,
- * message broker, and JWT authentication.
+ * WebSocket configuration for real-time game communication. Configures STOMP
+ * messaging protocol, message broker, and JWT authentication.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
  * @version 1.1
@@ -45,8 +45,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         String[] origins = (raw != null && !raw.isBlank())
                 ? Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isBlank())
                         .toArray(String[]::new)
-                : new String[] {"http://localhost:*", "https://localhost:*", "http://127.0.0.1:*",
-                        "https://127.0.0.1:*"};
+                : new String[]{"http://localhost:*", "https://localhost:*", "http://127.0.0.1:*",
+                            "https://127.0.0.1:*"};
 
         registry.addEndpoint("/ws").setAllowedOriginPatterns(origins).withSockJS();
     }
