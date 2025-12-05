@@ -17,5 +17,6 @@ logging:
   level:
     root: INFO
     com.arsw.bomberdino: DEBUG
+    com.arsw.bomberdino.config.LatencyInterceptor: INFO
     org.springframework.web.socket: TRACE
     org.springframework.messaging: TRACE

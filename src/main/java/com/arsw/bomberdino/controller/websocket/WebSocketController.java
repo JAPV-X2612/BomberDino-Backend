@@ -46,6 +46,8 @@ public class WebSocketController {
     private final GameSessionService gameSessionService;
     private final SimpMessagingTemplate messagingTemplate;
     private final SequenceNumberManager sequenceNumberManager;
+    private static final java.util.List<Long> latencies = new java.util.ArrayList<>();
+    private static int messageCount = 0;
 
     public WebSocketController(GameFacadeService gameFacadeService,
             GameSessionService gameSessionService, SimpMessagingTemplate messagingTemplate,
@@ -83,6 +85,7 @@ public class WebSocketController {
             long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
             logger.info("✅ Player {} moved {} in session {} (took {}ms)",
                     request.getPlayerId(), request.getDirection(), request.getSessionId(), elapsedMs);
+            recordLatency(elapsedMs, "MOVE");
 
         } catch (InvalidMoveException e) {
             logger.warn("⚠️ Invalid move request from player {} in session {}: {}",
@@ -130,6 +133,7 @@ public class WebSocketController {
             logger.info("✅ Player {} placed bomb at ({}, {}) in session {} (took {}ms)",
                     request.getPlayerId(), request.getPosition().x, request.getPosition().y,
                     request.getSessionId(), elapsedMs);
+            recordLatency(elapsedMs, "BOMB");
 
         } catch (IllegalArgumentException e) {
             logger.warn("⚠️ Invalid bomb placement request from player {} in session {}: {}",
@@ -592,5 +596,63 @@ public class WebSocketController {
     public void broadcastToSession(String sessionId, String string, PowerUpCollectedEvent event) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'broadcastToSession'");
+    }
+
+    /**
+     * Registra latencia y calcula estadísticas cada 20 mensajes
+     */
+    private synchronized void recordLatency(long latency, String type) {
+        latencies.add(latency);
+        messageCount++;
+
+        logger.info("⏱️ {} latency: {} ms", type, latency);
+
+        // Mostrar estadísticas cada 20 mensajes
+        if (messageCount % 20 == 0) {
+            printStatistics();
+        }
+    }
+
+    /**
+     * Calcula e imprime estadísticas de latencia (p95, p99)
+     */
+    private void printStatistics() {
+        if (latencies.isEmpty()) {
+            return;
+        }
+
+        java.util.List<Long> sorted = new java.util.ArrayList<>(latencies);
+        sorted.sort(Long::compareTo);
+
+        int size = sorted.size();
+        long min = sorted.get(0);
+        long max = sorted.get(size - 1);
+        long avg = (long) sorted.stream().mapToLong(Long::longValue).average().orElse(0);
+
+        int p95Index = (int) Math.ceil(size * 0.95) - 1;
+        int p99Index = (int) Math.ceil(size * 0.99) - 1;
+        long p95 = sorted.get(Math.max(0, Math.min(p95Index, size - 1)));
+        long p99 = sorted.get(Math.max(0, Math.min(p99Index, size - 1)));
+
+        logger.info("\n"
+                + "================================================================\n"
+                + "   ESTADISTICAS WEBSOCKET GAMEPLAY (Ultimos {} mensajes)       \n"
+                + "================================================================\n"
+                + "  Muestras totales:  {}\n"
+                + "  Min:               {} ms\n"
+                + "  Max:               {} ms\n"
+                + "  Promedio:          {} ms\n"
+                + "  ------------------------------------------------------------ \n"
+                + "  >> p95:            {} ms  (objetivo: < 50ms)\n"
+                + "  >> p99:            {} ms  (objetivo: < 150ms)\n"
+                + "================================================================",
+                size, size, min, max, avg, p95, p99
+        );
+
+        if (p95 < 50 && p99 < 150) {
+            logger.info("✅ SUCCESS! Objetivos cumplidos: p95={} ms, p99={} ms", p95, p99);
+        } else {
+            logger.warn("⚠️ WARNING! Objetivos no cumplidos: p95={} ms, p99={} ms", p95, p99);
+        }
     }
 }

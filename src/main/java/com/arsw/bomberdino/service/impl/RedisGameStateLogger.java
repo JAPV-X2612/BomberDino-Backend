@@ -15,8 +15,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service for logging game state snapshots to Redis.
- * All operations are asynchronous and fail silently to avoid impacting game performance.
+ * Service for logging game state snapshots to Redis. All operations are
+ * asynchronous and fail silently to avoid impacting game performance.
  *
  * @author Mapunix, Rivaceratops, Yisus-Rex
  * @version 1.0
@@ -42,7 +42,8 @@ public class RedisGameStateLogger {
      *
      * @param sessionId unique session identifier
      * @param session GameSession instance to log
-     * @param eventType type of event triggering the log (e.g., "SNAPSHOT", "BOMB_EXPLODED")
+     * @param eventType type of event triggering the log (e.g., "SNAPSHOT",
+     * "BOMB_EXPLODED")
      */
     @Async
     public void logGameState(String sessionId, GameSession session, String eventType) {
@@ -78,8 +79,8 @@ public class RedisGameStateLogger {
     }
 
     /**
-     * Logs game session event without full state snapshot.
-     * Used for lightweight event tracking.
+     * Logs game session event without full state snapshot. Used for lightweight
+     * event tracking.
      *
      * @param sessionId unique session identifier
      * @param eventType type of event
