@@ -198,7 +198,7 @@
                                     <limit>
                                         <counter>CLASS</counter>
                                         <value>COVEREDRATIO</value>
-                                        <minimum>0.00</minimum> <!-- Change to 80% coverage when unit tests are implemented -->
+                                        <minimum>0.80</minimum> <!-- Change to 80% coverage when unit tests are implemented -->
                                     </limit>
                                 </limits>
                             </rule>
