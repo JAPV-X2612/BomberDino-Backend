@@ -68,6 +68,14 @@ class CollisionServiceTest {
     }
 
     @Test
+    void canMoveToReturnsFalseWhenOutOfBounds() {
+        GameMap map = buildMap();
+        when(gameMapService.getMap("session")).thenReturn(map);
+
+        assertFalse(service.canMoveTo("session", new Point(9, 9)));
+    }
+
+    @Test
     void detectPowerUpCollisionReturnsNonExpiredPowerUp() {
         PowerUp active = PowerUp.builder()
                 .id(UUID.randomUUID())
@@ -132,6 +140,45 @@ class CollisionServiceTest {
     }
 
     @Test
+    void handleBombExplosionReturnsEmptyWhenBombMissing() {
+        GameMap map = buildMap();
+        GameSession session = new GameSession();
+        session.setActiveBombs(new ArrayList<>());
+
+        when(gameMapService.getMap("session")).thenReturn(map);
+        when(gameSessionService.getSession("session")).thenReturn(session);
+
+        List<Point> tiles = service.handleBombExplosion("session", UUID.randomUUID().toString(), 2);
+
+        assertTrue(tiles.isEmpty());
+    }
+
+    @Test
+    void handleBombExplosionStopsWhenTileIsNull() {
+        GameMap map = buildMap();
+        map.getTiles()[1][2] = null; // make a null tile in-path
+        Bomb bomb = Bomb.builder()
+                .id(UUID.randomUUID())
+                .posX(1)
+                .posY(1)
+                .range(3)
+                .state(BombState.PLACED)
+                .placedTime(System.currentTimeMillis())
+                .explosionDelay(3000)
+                .build();
+        GameSession session = new GameSession();
+        session.setActiveBombs(List.of(bomb));
+
+        when(gameMapService.getMap("session")).thenReturn(map);
+        when(gameSessionService.getSession("session")).thenReturn(session);
+
+        List<Point> tiles = service.handleBombExplosion("session", bomb.getId().toString(), 3);
+
+        assertFalse(tiles.contains(new Point(2, 1))); // null tile should stop propagation
+        assertTrue(tiles.contains(new Point(1, 0))); // solid wall still included
+    }
+
+    @Test
     void isValidPositionUsesMapBounds() {
         GameMap map = buildMap();
         when(gameMapService.getMap("session")).thenReturn(map);
@@ -148,6 +195,8 @@ class CollisionServiceTest {
                 () -> service.handleBombExplosion("session", null, 1));
         assertThrows(ValidationException.class,
                 () -> service.handleBombExplosion("session", "bomb", 0));
+        assertThrows(ValidationException.class,
+                () -> service.handleBombExplosion("session", " ", 1));
     }
 
     private GameMap buildMap() {

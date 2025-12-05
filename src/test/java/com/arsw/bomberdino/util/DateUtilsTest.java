@@ -22,6 +22,14 @@ class DateUtilsTest {
     }
 
     @Test
+    void secondsBetweenComputesDifference() {
+        LocalDateTime start = LocalDateTime.of(2025, 1, 1, 0, 0, 0);
+        LocalDateTime end = start.plusSeconds(90);
+
+        assertEquals(90, DateUtils.secondsBetween(start, end));
+    }
+
+    @Test
     void conversionsBetweenMillisAndSeconds() {
         assertEquals(2, DateUtils.millisToSeconds(2500));
         assertEquals(5000, DateUtils.secondsToMillis(5));
@@ -33,6 +41,8 @@ class DateUtilsTest {
         assertTrue(DateUtils.hasExpired(start, 1));
         long notExpiredStart = System.currentTimeMillis() + 1000;
         assertFalse(DateUtils.hasExpired(notExpiredStart, 10));
+        long now = System.currentTimeMillis();
+        assertTrue(DateUtils.hasExpired(now, 0)); // boundary equal
 
         long remaining = DateUtils.remainingTime(System.currentTimeMillis(), 50);
         assertTrue(remaining <= 50 && remaining >= 0);

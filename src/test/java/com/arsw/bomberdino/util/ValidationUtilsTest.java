@@ -40,5 +40,6 @@ class ValidationUtilsTest {
         UUID uuid = ValidationUtils.requireValidUUID(UUID.randomUUID().toString(), "id");
         assertNotNull(uuid);
         assertThrows(IllegalArgumentException.class, () -> ValidationUtils.requireValidUUID("not-uuid", "id"));
+        assertThrows(IllegalArgumentException.class, () -> ValidationUtils.requireValidUUID(" ", "id"));
     }
 }

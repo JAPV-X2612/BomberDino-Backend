@@ -3,8 +3,15 @@ package com.arsw.bomberdino.controller.websocket;
 import com.arsw.bomberdino.exception.InvalidMoveException;
 import com.arsw.bomberdino.model.dto.request.PlaceBombRequestDTO;
 import com.arsw.bomberdino.model.dto.request.PlayerMoveRequestDTO;
+import com.arsw.bomberdino.model.dto.response.BombExplodedDTO;
+import com.arsw.bomberdino.model.dto.response.BombPlacedEventDTO;
 import com.arsw.bomberdino.model.dto.response.GameStateDTO;
+import com.arsw.bomberdino.model.dto.response.HeartbeatEventDTO;
+import com.arsw.bomberdino.model.dto.response.PlayerKilledDTO;
+import com.arsw.bomberdino.model.dto.response.PlayerMovedEventDTO;
+import com.arsw.bomberdino.model.dto.response.PointDTO;
 import com.arsw.bomberdino.model.enums.Direction;
+import com.arsw.bomberdino.model.enums.GameStatus;
 import com.arsw.bomberdino.service.impl.GameFacadeService;
 import com.arsw.bomberdino.service.impl.GameSessionService;
 import com.arsw.bomberdino.util.SequenceNumberManager;
@@ -91,6 +98,38 @@ class WebSocketControllerTest {
     }
 
     @Test
+    void handlePlayerMoveHandlesIllegalState() {
+        PlayerMoveRequestDTO request = PlayerMoveRequestDTO.builder()
+                .sessionId("sid")
+                .playerId("pid")
+                .direction(Direction.DOWN)
+                .timestamp(System.currentTimeMillis())
+                .build();
+        doThrow(new IllegalStateException("blocked")).when(gameFacadeService)
+                .handlePlayerMove("sid", "pid", Direction.DOWN);
+
+        controller.handlePlayerMove(request);
+
+        verify(messagingTemplate).convertAndSendToUser(eq("pid"), eq("/queue/errors"), any());
+    }
+
+    @Test
+    void handlePlayerMoveHandlesUnexpectedError() {
+        PlayerMoveRequestDTO request = PlayerMoveRequestDTO.builder()
+                .sessionId("sid")
+                .playerId("pid")
+                .direction(Direction.RIGHT)
+                .timestamp(System.currentTimeMillis())
+                .build();
+        doThrow(new RuntimeException("boom")).when(gameFacadeService)
+                .handlePlayerMove("sid", "pid", Direction.RIGHT);
+
+        controller.handlePlayerMove(request);
+
+        verify(messagingTemplate).convertAndSendToUser(eq("pid"), eq("/queue/errors"), any());
+    }
+
+    @Test
     void handlePlaceBombSendsErrorOnFailure() {
         PlaceBombRequestDTO request = PlaceBombRequestDTO.builder()
                 .sessionId("sid")
@@ -118,6 +157,38 @@ class WebSocketControllerTest {
         controller.handlePlaceBomb(request);
 
         verify(gameFacadeService).handlePlaceBomb("sid", "pid", request.getPosition());
+    }
+
+    @Test
+    void handlePlaceBombSendsErrorOnInvalidArgument() {
+        PlaceBombRequestDTO request = PlaceBombRequestDTO.builder()
+                .sessionId("sid")
+                .playerId("pid")
+                .position(new Point(1, 1))
+                .timestamp(System.currentTimeMillis())
+                .build();
+        doThrow(new IllegalArgumentException("bad")).when(gameFacadeService)
+                .handlePlaceBomb("sid", "pid", request.getPosition());
+
+        controller.handlePlaceBomb(request);
+
+        verify(messagingTemplate).convertAndSendToUser(eq("pid"), eq("/queue/errors"), any());
+    }
+
+    @Test
+    void handlePlaceBombSendsErrorOnUnexpectedFailure() {
+        PlaceBombRequestDTO request = PlaceBombRequestDTO.builder()
+                .sessionId("sid")
+                .playerId("pid")
+                .position(new Point(1, 1))
+                .timestamp(System.currentTimeMillis())
+                .build();
+        doThrow(new RuntimeException("boom")).when(gameFacadeService)
+                .handlePlaceBomb("sid", "pid", request.getPosition());
+
+        controller.handlePlaceBomb(request);
+
+        verify(messagingTemplate).convertAndSendToUser(eq("pid"), eq("/queue/errors"), any());
     }
 
     @Test
@@ -231,6 +302,17 @@ class WebSocketControllerTest {
     }
 
     @Test
+    void handleSessionSubscribeEventIgnoresNullDestination() {
+        var message = MessageBuilder.withPayload(new byte[0]).build();
+        SessionSubscribeEvent event = new SessionSubscribeEvent(new Object(), message);
+
+        controller.handleSessionSubscribeEvent(event);
+
+        verifyNoInteractions(gameSessionService);
+        verifyNoInteractions(messagingTemplate);
+    }
+
+    @Test
     void onPlayerDisconnectHappyPath() {
         controller.onPlayerDisconnect("sid", "pid");
 
@@ -261,5 +343,224 @@ class WebSocketControllerTest {
                 .handlePlayerMove("sid", "pid", Direction.UP);
 
         assertDoesNotThrow(() -> controller.handlePlayerMove(request));
+    }
+
+    @Test
+    void onPlayerDisconnectHandlesUnexpectedError() {
+        doThrow(new RuntimeException("boom")).when(gameSessionService).removePlayer("sid", "pid");
+
+        assertDoesNotThrow(() -> controller.onPlayerDisconnect("sid", "pid"));
+    }
+
+    @Test
+    void broadcastGameStartSendsNotification() {
+        GameStateDTO state = GameStateDTO.builder().sessionId("sid").build();
+
+        controller.broadcastGameStart("sid", state);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/game/sid/start"), any(Object.class));
+    }
+
+    @Test
+    void broadcastGameStartSwallowsErrors() {
+        GameStateDTO state = GameStateDTO.builder().sessionId("sid").build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(eq("/topic/game/sid/start"), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastGameStart("sid", state));
+    }
+
+    @Test
+    void broadcastPlayerKilledSendsToTopic() {
+        PlayerKilledDTO dto = PlayerKilledDTO.builder()
+                .sessionId("sid").killerId("k").victimId("v").timestamp(1L).build();
+
+        controller.broadcastPlayerKilled("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/kill", dto);
+    }
+
+    @Test
+    void broadcastPlayerKilledSwallowsErrors() {
+        PlayerKilledDTO dto = PlayerKilledDTO.builder()
+                .sessionId("sid").killerId("k").victimId("v").timestamp(1L).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastPlayerKilled("sid", dto));
+    }
+
+    @Test
+    void broadcastBombExplodedSendsToTopic() {
+        BombExplodedDTO dto = BombExplodedDTO.builder()
+                .sessionId("sid")
+                .bombId("bid")
+                .affectedTiles(List.of(new PointDTO(1, 1)))
+                .affectedPlayers(List.of())
+                .timestamp(1L)
+                .build();
+
+        controller.broadcastBombExploded("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/explosion", dto);
+    }
+
+    @Test
+    void broadcastBombExplodedSwallowsErrors() {
+        BombExplodedDTO dto = BombExplodedDTO.builder()
+                .sessionId("sid")
+                .bombId("bid")
+                .affectedTiles(List.of(new PointDTO(1, 1)))
+                .affectedPlayers(List.of("p"))
+                .timestamp(1L)
+                .build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastBombExploded("sid", dto));
+    }
+
+    @Test
+    void broadcastPlayerMovedSendsToTopic() {
+        PlayerMovedEventDTO dto = PlayerMovedEventDTO.builder()
+                .playerId("p").newX(1).newY(2).direction(Direction.UP).sequenceNumber(2L)
+                .timestamp(3L).build();
+
+        controller.broadcastPlayerMoved("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/player-moved", dto);
+    }
+
+    @Test
+    void broadcastPlayerMovedSwallowsErrors() {
+        PlayerMovedEventDTO dto = PlayerMovedEventDTO.builder()
+                .playerId("p").newX(1).newY(2).direction(Direction.UP).sequenceNumber(2L)
+                .timestamp(3L).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastPlayerMoved("sid", dto));
+    }
+
+    @Test
+    void broadcastBombPlacedSendsToTopic() {
+        BombPlacedEventDTO dto = BombPlacedEventDTO.builder()
+                .bombId("b").playerId("p").x(1).y(2).range(3).timeToExplode(10L)
+                .sequenceNumber(4L).timestamp(5L).build();
+
+        controller.broadcastBombPlaced("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/bomb-placed", dto);
+    }
+
+    @Test
+    void broadcastBombPlacedSwallowsErrors() {
+        BombPlacedEventDTO dto = BombPlacedEventDTO.builder()
+                .bombId("b").playerId("p").x(1).y(2).range(3).timeToExplode(10L)
+                .sequenceNumber(4L).timestamp(5L).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastBombPlaced("sid", dto));
+    }
+
+    @Test
+    void broadcastHeartbeatSendsToTopic() {
+        HeartbeatEventDTO dto = HeartbeatEventDTO.builder()
+                .sessionId("sid").status(GameStatus.IN_PROGRESS).sequenceNumber(1L)
+                .timestamp(2L).alivePlayersCount(3).build();
+
+        controller.broadcastHeartbeat("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/heartbeat", dto);
+    }
+
+    @Test
+    void broadcastHeartbeatSwallowsErrors() {
+        HeartbeatEventDTO dto = HeartbeatEventDTO.builder()
+                .sessionId("sid").status(GameStatus.IN_PROGRESS).sequenceNumber(1L)
+                .timestamp(2L).alivePlayersCount(3).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastHeartbeat("sid", dto));
+    }
+
+    @Test
+    void broadcastPeriodicSyncSendsToTopic() {
+        GameStateDTO state = GameStateDTO.builder()
+                .sessionId("sid").players(List.of()).bombs(List.of()).build();
+
+        controller.broadcastPeriodicSync("sid", state);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/sync", state);
+    }
+
+    @Test
+    void broadcastPeriodicSyncSwallowsErrors() {
+        GameStateDTO state = GameStateDTO.builder()
+                .sessionId("sid").players(List.of()).bombs(List.of()).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+
+        assertDoesNotThrow(() -> controller.broadcastPeriodicSync("sid", state));
+    }
+
+    @Test
+    void onBombExplodedBroadcastsEventsAndState() {
+        BombExplodedDTO dto = BombExplodedDTO.builder()
+                .sessionId("sid")
+                .bombId("bid")
+                .affectedTiles(List.of(new PointDTO(1, 1)))
+                .affectedPlayers(List.of("p"))
+                .timestamp(1L)
+                .build();
+        GameStateDTO state = GameStateDTO.builder().sessionId("sid").players(List.of()).build();
+        when(gameFacadeService.getGameState("sid")).thenReturn(state);
+
+        controller.onBombExploded("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/explosion", dto);
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/state", state);
+    }
+
+    @Test
+    void onBombExplodedSwallowsErrors() {
+        BombExplodedDTO dto = BombExplodedDTO.builder()
+                .sessionId("sid")
+                .bombId("bid")
+                .affectedTiles(List.of(new PointDTO(1, 1)))
+                .affectedPlayers(List.of("p"))
+                .timestamp(1L)
+                .build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+        doThrow(new RuntimeException("boom")).when(gameFacadeService).getGameState("sid");
+
+        assertDoesNotThrow(() -> controller.onBombExploded("sid", dto));
+    }
+
+    @Test
+    void onPlayerKilledBroadcastsEventsAndState() {
+        PlayerKilledDTO dto = PlayerKilledDTO.builder()
+                .sessionId("sid").killerId("k").victimId("v").timestamp(1L).build();
+        GameStateDTO state = GameStateDTO.builder().sessionId("sid").players(List.of()).build();
+        when(gameFacadeService.getGameState("sid")).thenReturn(state);
+
+        controller.onPlayerKilled("sid", dto);
+
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/kill", dto);
+        verify(messagingTemplate).convertAndSend("/topic/game/sid/state", state);
+    }
+
+    @Test
+    void onPlayerKilledSwallowsErrors() {
+        PlayerKilledDTO dto = PlayerKilledDTO.builder()
+                .sessionId("sid").killerId("k").victimId("v").timestamp(1L).build();
+        doThrow(new RuntimeException("fail")).when(messagingTemplate)
+                .convertAndSend(anyString(), any(Object.class));
+        doThrow(new RuntimeException("boom")).when(gameFacadeService).getGameState("sid");
+
+        assertDoesNotThrow(() -> controller.onPlayerKilled("sid", dto));
     }
 }

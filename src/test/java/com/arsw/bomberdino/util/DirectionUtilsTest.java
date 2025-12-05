@@ -52,6 +52,7 @@ class DirectionUtilsTest {
         assertEquals(Direction.DOWN, DirectionUtils.getDirectionBetween(new Point(0, 0), new Point(0, 1)));
         assertNull(DirectionUtils.getDirectionBetween(new Point(0, 0), new Point(2, 2)));
         assertNull(DirectionUtils.getDirectionBetween(null, new Point(0, 0)));
+        assertNull(DirectionUtils.getDirectionBetween(new Point(1, 1), new Point(1, 1)));
     }
 
     @Test

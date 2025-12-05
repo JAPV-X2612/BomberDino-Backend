@@ -101,8 +101,20 @@ class PlayerServiceTest {
     }
 
     @Test
+    void applyPowerUpEffectValidatesInputs() {
+        assertThrows(ValidationException.class, () -> service.applyPowerUpEffect(null, PowerUpEffect.builder().build()));
+        service.createPlayer("p1", "user", new Point(0, 0));
+        assertThrows(ValidationException.class, () -> service.applyPowerUpEffect("p1", null));
+    }
+
+    @Test
     void isAliveReturnsFalseWhenMissingPlayer() {
         assertFalse(service.isAlive(UUID.randomUUID().toString()));
+    }
+
+    @Test
+    void isAliveThrowsOnBlankId() {
+        assertThrows(ValidationException.class, () -> service.isAlive(" "));
     }
 
     @Test
@@ -111,5 +123,34 @@ class PlayerServiceTest {
         service.removePlayer("p1");
 
         assertThrows(PlayerNotFoundException.class, () -> service.getPlayer("p1"));
+        assertThrows(ValidationException.class, () -> service.removePlayer(""));
+    }
+
+    @Test
+    void validatePositionAndUsernameBranches() {
+        assertThrows(ValidationException.class, () -> service.movePlayer("id", null));
+        assertThrows(ValidationException.class, () -> service.createPlayer("id", " ", new Point(1, 1)));
+    }
+
+    @Test
+    void respawnPlayerValidatesAlive() {
+        service.createPlayer("p1", "user", new Point(1, 2));
+        Player player = service.getPlayer("p1");
+        player.setLifeCount(0);
+        player.setDeaths(1);
+        assertThrows(IllegalStateException.class, () -> service.respawnPlayer("p1"));
+    }
+
+    @Test
+    void killPlayerValidatesIdsAndPlayerLookup() {
+        assertThrows(ValidationException.class, () -> service.killPlayer(null, "v"));
+        assertThrows(ValidationException.class, () -> service.killPlayer("k", " "));
+        assertThrows(PlayerNotFoundException.class, () -> service.killPlayer("k", "missing"));
+    }
+
+    @Test
+    void incrementDeathsValidates() {
+        assertThrows(ValidationException.class, () -> service.incrementDeaths(" "));
+        assertThrows(PlayerNotFoundException.class, () -> service.incrementDeaths("missing"));
     }
 }

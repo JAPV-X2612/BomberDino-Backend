@@ -62,6 +62,10 @@ class PowerUpServiceTest {
                 () -> service.applyPowerUpEffect(null, "id"));
         assertThrows(ValidationException.class,
                 () -> service.applyPowerUpEffect("player-1", null));
+        assertThrows(ValidationException.class,
+                () -> service.applyPowerUpEffect(" ", "id"));
+        assertThrows(ValidationException.class,
+                () -> service.applyPowerUpEffect("player-1", " "));
         assertThrows(IllegalStateException.class,
                 () -> service.applyPowerUpEffect("player-1", "missing"));
 
@@ -94,9 +98,38 @@ class PowerUpServiceTest {
         powerUpStore.put(powerUp.getId().toString(), powerUp);
 
         service.scheduleExpiration(powerUp.getId().toString(), 10);
-        Thread.sleep(30); // allow scheduled task to run quickly
+        Thread.sleep(20); // allow scheduled task to run quickly
 
         assertTrue(service.getActivePowerUps("session-1").isEmpty());
+    }
+
+    @Test
+    void scheduleExpirationKeepsNonExpiredPowerUp() throws InterruptedException {
+        PowerUp powerUp = buildPowerUp(PowerUpType.BOMB_COUNT_UP, new Point(0, 0), 5_000);
+        powerUpStore.put(powerUp.getId().toString(), powerUp);
+
+        service.scheduleExpiration(powerUp.getId().toString(), 5);
+        Thread.sleep(15);
+
+        assertFalse(service.getActivePowerUps("session-1").isEmpty());
+    }
+
+    @Test
+    void scheduleExpirationGracefullyHandlesMissingPowerUp() throws InterruptedException {
+        service.scheduleExpiration(UUID.randomUUID().toString(), 5);
+        Thread.sleep(10);
+        assertTrue(service.getActivePowerUps("session-1").isEmpty());
+    }
+
+    @Test
+    void createEffectSetsDurationForTemporaryPowerUp() {
+        PowerUp temp = buildPowerUp(PowerUpType.TEMPORARY_SHIELD, new Point(1, 1), 8_000);
+        powerUpStore.put(temp.getId().toString(), temp);
+
+        PowerUpEffect effect = service.applyPowerUpEffect("player-1", temp.getId().toString());
+
+        assertEquals(8, effect.getDuration());
+        assertEquals(PowerUpType.TEMPORARY_SHIELD, effect.getType());
     }
 
     @Test
@@ -104,13 +137,43 @@ class PowerUpServiceTest {
         assertThrows(ValidationException.class,
                 () -> service.spawnPowerUp(null, PowerUpType.BOMB_COUNT_UP, new Point(0, 0)));
         assertThrows(ValidationException.class,
+                () -> service.spawnPowerUp(" ", PowerUpType.BOMB_COUNT_UP, new Point(0, 0)));
+        assertThrows(ValidationException.class,
                 () -> service.spawnPowerUp("session", null, new Point(0, 0)));
         assertThrows(ValidationException.class,
                 () -> service.spawnPowerUp("session", PowerUpType.BOMB_COUNT_UP, null));
         assertThrows(ValidationException.class,
                 () -> service.getActivePowerUps(null));
         assertThrows(ValidationException.class,
+                () -> service.getActivePowerUps(" "));
+        assertThrows(ValidationException.class,
                 () -> service.scheduleExpiration("id", 0));
+        assertThrows(ValidationException.class,
+                () -> service.scheduleExpiration(" ", 1));
+    }
+
+    @Test
+    void shutdownForcesShutdownNowWhenNotTerminated() {
+        PowerUpService customService = new PowerUpService();
+        FailingAwaitScheduler scheduler = new FailingAwaitScheduler(false, false);
+        setScheduler(customService, scheduler);
+
+        customService.shutdown();
+
+        assertTrue(scheduler.shutdownCalled);
+        assertTrue(scheduler.shutdownNowCalled);
+    }
+
+    @Test
+    void shutdownHandlesInterruptedAwait() {
+        PowerUpService customService = new PowerUpService();
+        FailingAwaitScheduler scheduler = new FailingAwaitScheduler(true, true);
+        setScheduler(customService, scheduler);
+
+        customService.shutdown();
+
+        assertTrue(scheduler.shutdownNowCalled);
+        assertTrue(Thread.interrupted()); // clear interrupt status for other tests
     }
 
     private PowerUp buildPowerUp(PowerUpType type, Point position, long duration) {
@@ -135,6 +198,53 @@ class PowerUpServiceTest {
             return (java.util.concurrent.ConcurrentHashMap<String, PowerUp>) field.get(svc);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to access powerUps store", e);
+        }
+    }
+
+    private void setScheduler(PowerUpService svc,
+            java.util.concurrent.ScheduledExecutorService scheduler) {
+        try {
+            var field = PowerUpService.class.getDeclaredField("expirationScheduler");
+            field.setAccessible(true);
+            field.set(svc, scheduler);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to replace scheduler", e);
+        }
+    }
+
+    private static class FailingAwaitScheduler
+            extends java.util.concurrent.ScheduledThreadPoolExecutor {
+
+        private final boolean throwInterrupt;
+        private final boolean awaitResult;
+        private volatile boolean shutdownCalled;
+        private volatile boolean shutdownNowCalled;
+
+        FailingAwaitScheduler(boolean throwInterrupt, boolean awaitResult) {
+            super(1);
+            this.throwInterrupt = throwInterrupt;
+            this.awaitResult = awaitResult;
+        }
+
+        @Override
+        public void shutdown() {
+            shutdownCalled = true;
+            super.shutdown();
+        }
+
+        @Override
+        public java.util.List<Runnable> shutdownNow() {
+            shutdownNowCalled = true;
+            return super.shutdownNow();
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, java.util.concurrent.TimeUnit unit)
+                throws InterruptedException {
+            if (throwInterrupt) {
+                throw new InterruptedException("forced");
+            }
+            return awaitResult;
         }
     }
 }

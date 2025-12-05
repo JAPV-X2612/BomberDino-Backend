@@ -54,6 +54,11 @@ class TileServiceTest {
     }
 
     @Test
+    void isOccupiedReturnsFalseWhenTileDoesNotExist() {
+        assertFalse(service.isOccupied("session-1", new Point(99, 99)));
+    }
+
+    @Test
     void tryOccupyReturnsFalseForNonWalkableOrOccupiedTiles() {
         Point wallPos = new Point(0, 0); // solid wall
         assertFalse(service.tryOccupy("session-1", wallPos, false));
@@ -61,6 +66,15 @@ class TileServiceTest {
         Point emptyPos = new Point(1, 1);
         assertTrue(service.tryOccupy("session-1", emptyPos, false));
         assertFalse(service.tryOccupy("session-1", emptyPos, false));
+    }
+
+    @Test
+    void tryOccupyReturnsFalseWhenTileMissingOrAlreadyOccupiedByBomb() {
+        assertFalse(service.tryOccupy("session-1", new Point(99, 99), false));
+
+        Point pos = new Point(1, 1);
+        assertTrue(service.tryOccupy("session-1", pos, false));
+        assertFalse(service.tryOccupy("session-1", pos, true)); // occupied even if placing bomb
     }
 
     @Test
@@ -84,6 +98,12 @@ class TileServiceTest {
     }
 
     @Test
+    void markBombAndReleaseIgnoreMissingTiles() {
+        assertDoesNotThrow(() -> service.markBomb("session-1", new Point(99, 99), true));
+        assertDoesNotThrow(() -> service.releaseOccupation("session-1", new Point(99, 99)));
+    }
+
+    @Test
     void applyExplosionToTileDestroysDestructibleTile() {
         Point pos = new Point(2, 2);
         Tile tile = service.getTile("session-1", pos);
@@ -93,6 +113,18 @@ class TileServiceTest {
 
         assertEquals(TileType.EMPTY, tile.getType());
         assertFalse(tile.isDestructible());
+    }
+
+    @Test
+    void applyExplosionToTileDoesNothingForNonDestructibleOrMissingTile() {
+        Tile nonDestructible = service.getTile("session-1", new Point(1, 1));
+        assertNotNull(nonDestructible);
+        assertDoesNotThrow(() -> service.applyExplosionToTile("session-1", new Point(99, 99)));
+
+        service.applyExplosionToTile("session-1", new Point(1, 1));
+
+        assertEquals(TileType.EMPTY, nonDestructible.getType());
+        assertFalse(nonDestructible.isDestructible());
     }
 
     @Test

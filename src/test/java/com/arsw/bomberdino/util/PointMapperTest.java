@@ -56,6 +56,7 @@ class PointMapperTest {
     void boundsCheck() {
         assertTrue(PointMapper.isInBounds(new Point(0, 0), 5, 5));
         assertFalse(PointMapper.isInBounds(new Point(5, 0), 5, 5));
+        assertFalse(PointMapper.isInBounds(new Point(-1, 0), 5, 5));
         assertFalse(PointMapper.isInBounds(null, 5, 5));
     }
 }
